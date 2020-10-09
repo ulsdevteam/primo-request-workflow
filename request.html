@@ -1,0 +1,72 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+   "http://www.w3.org/TR/html4/strict.dtd">
+<HTML>
+   <HEAD>
+      <TITLE>EZ Borrow API Testing</TITLE>
+      <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.10/angular.min.js"></script>
+	  <base href="/">
+   </HEAD>
+   <BODY ng-app="ezBorrowAPI" ng-controller="ezBorrowAPIController">
+	  <p>{{message}}</p>
+	  <a href="{{illiadLink}}" ng-if="unavailable">Order from Interlibrary Loan</a>
+	  <br>
+	  <a href="{{pittcatLink}}" ng-if="unavailable">Go back to PittCat</a>
+      <form ng-if="available" action="" method="get">
+	<label for="ezbPickupLocs">Choose a pickup location:</label>
+	<select id="ezbPickupLocs" ng-options="location as location.PickupLocationDescription for location in locations track by location.PickupLocationCode" ng-model="selected">
+	</select>
+	<input type="submit" id="ezRequestSubmit" value="Order this book">
+      <form>
+   </BODY>
+<script>
+var app=angular.module('ezBorrowAPI',[]);
+app.config(['$locationProvider', function ($locationProvider) { $locationProvider.html5Mode(true); }]);
+app.controller('ezBorrowAPIController',['$window','$location','$scope','$http', function($window,$location,$scope,$http){
+
+    //Get params from url for use in constructing illiad url
+	var title = encodeURI($location.search().title);
+	var author = encodeURI($location.search().author);
+	var publisher = encodeURI($location.search().publisher);
+	var location = encodeURI($location.search().location);
+	var year = encodeURI(location.search().year);
+	var requestType = encodeURI($location.search().requesttype);
+	var oclc = encodeURI($location.search().oclc);
+	var issn = encodeURI($location.search().issn);
+	var volume = encodeURI($location.search().volume);
+	var issue = encodeURI($location.search().issue);
+	var month = encodeURI($location.search().month);
+	var atitle = encodeURI($location.search().atitle);
+	var pages = encodeURI($location.search().pages);
+	var pickup = encodeURI($location.search().pickup);
+	var referrer = encodeURI($location.search().referrer);
+	//display wait message
+    $scope.message = 'Searching 21 partner libraries...';
+	//if the query string param variables are undefined they'll break it
+	$http.get('workflow.php?title='+title+'&author='+author+'&publisher='+publisher+'&location='+location+'&year='+year+'&requesttype='+requestType+'&oclc='+oclc+'&issn='+issn+'&volume='+volume+'&issue='+issue+'&month='+month+'&atitle='+atitle+'&pages='+pages+'&pickup='+pickup)
+  	.then(function(response) {
+      //$scope.apimessage = response.data;
+	  
+	  var response = angular.fromJson(response.data);
+	  if (response.Problem){
+	  	$scope.message= response.Problem.Message;
+	  }
+	  else{
+		if (response.Available){
+			$scope.available = true;//response.Available;
+			$scope.message=response.RequestLink.RequestMessage;
+    		//$scope.message =  response.Available;
+    		$scope.locations = response.PickupLocation;
+		}
+		else{
+			$scope.message= 'This book is not available through EZ-Borrow. Would you like to place an Interlibrary Loan Request? This service takes 7-14 days.';
+			$scope.unavailable = true;
+			$scope.illiadLink = response.illiadLink;
+			//https://pitt-psb.primo.exlibrisgroup.com/discovery/fulldisplay?docid=alma9986061173406236&context=L&vid=01PITT_INST:01PITT_INST
+			$scope.pittcatLink = 'https://pitt-psb.primo.exlibrisgroup.com/discovery/fulldisplay?context=L&vid=01PITT_INST:ezborrow&docid='+referrer;
+		}
+	}
+});
+}]);
+//<!--<option id="locationDefaultOption" selected="selected" value="defalt" disabled>Choose a location</option>-->
+</script>
+</HTML>
