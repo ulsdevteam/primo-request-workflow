@@ -4,21 +4,30 @@
 # Uses this PHP Rest Client: https://github.com/tcdent/php-restclient
 #
 
-//Get params from url for use in constructing illiad url
-$title = urlencode($_GET['title']);
-$author = urlencode($_GET['author']);
-$publisher = urlencode($_GET['publisher']);
-$location = urlencode($_GET['location']);
-$year = $_GET['year'];
-$oclc = $_GET['oclc'];
-$issn = $_GET['issn'];
-$type = $_GET['requesttype'];
-$volume = $_GET['volume'];
-$issue = $_GET['issue'];
-$month = $_GET['month'];
-$atitle = urlencode($_GET['atitle']);
-$pages = $_GET['pages'];
-$pickup = $_GET['pickup'];
+$openurlParams = array(
+'title',
+'author',
+'publisher',
+'location',
+'year',
+'oclc',
+'issn',
+'requesttype',
+'volume',
+'issue',
+'month',
+'atitle',
+'pages',
+'pickup',
+);
+
+$userParams = array();
+foreach ($openurlParams as $p) {
+	// Legacy: set the variable by name
+	$$p = urlencode($_GET[$p]);
+	// Preferred: create an array for passing around
+	$userParams[$p] = urlencode($_GET[$p]);
+}
 
 Class Alma {
 
@@ -148,20 +157,19 @@ class EZBorrow {
 class Illiad {
 
 	/* ======== ILLIAD ======== */
-	public function illiad($type,$campus){
-	    global $title,$author,$publisher,$location,$year,$oclc;
+	public static function bookRequest($type,$campus,$oUrl){
 		switch($campus){
 			case "UPG":
 			case "UPB":
 			case "UPT":
 			case "UPJ":
 			case "PIT":
-			$illiadLink = "https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll?Action=10&Form=21&LoanTitle=".$title."&LoanAuthor=".$author."&LoanPublisher=".$publisher."&LoanPlace=".$location."&LoanDate=".$year."&ESPNumber=".$oclc;
+			$illiadLink = "https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll?Action=10&Form=21&LoanTitle=".$oUrl['title']."&LoanAuthor=".$oUrl['author']."&LoanPublisher=".$oUrl['publisher']."&LoanPlace=".$oUrl['location']."&LoanDate=".$oUrl['year']."&ESPNumber=".$oUrl['oclc'];
 			$decoded->{'illiadLink'}=$illiadLink;
 			echo json_encode($decoded);
 			break;
 	        case "HSLS":
-	        header("Location: https://illiad.hsls.pitt.edu/illiad/illiad.dll?Action=10&Form=30&LoanTitle=".$title."&LoanAuthor=".$author."&LoanPublisher=".$publisher."&LoanPlace=".$location."&LoanDate=".$year."&ESPNumber=".$oclc);
+	        header("Location: https://illiad.hsls.pitt.edu/illiad/illiad.dll?Action=10&Form=30&LoanTitle=".$oUrl['title']."&LoanAuthor=".$oUrl['author']."&LoanPublisher=".$oUrl['publisher']."&LoanPlace=".$oUrl['location']."&LoanDate=".$oUrl['year']."&ESPNumber=".$oUrl['oclc']);
 	        break;
 		} 
 	}
@@ -183,8 +191,7 @@ if($type=='book'){
 	//this one special group isn't eligible to use EZBorrow
 	//ILLIAD
 	if ($user_group=='UPPROGRAM'){
-		$ill = new Illiad();
-		$ill->illiad($type,$campus);
+		Illiad::bookRequest($type,$campus,$userParams);
 	}
 	else{
 		//EZ Borrow?
