@@ -24,7 +24,11 @@ $openurlParams = array(
 $userParams = array();
 foreach ($openurlParams as $p) {
 	// Legacy: set the variable by name
-	$$p = urlencode($_GET[$p]);
+	if ($p === 'requesttype') {
+		$type = urlencode($_GET[$p]);
+	} else {
+		$$p = urlencode($_GET[$p]);
+	}
 	// Preferred: create an array for passing around
 	$userParams[$p] = urlencode($_GET[$p]);
 }
