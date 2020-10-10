@@ -99,6 +99,7 @@ Class Flow {
 			return $aid; 
 		}
 		else{
+			echo $response->response;
 			return false;
 		}
 	}
@@ -106,9 +107,10 @@ Class Flow {
 	/* ======== EZ SEARCH ======== */
 	public function ezSearch($oclc){
 		if ($aid = $this->ezAuth()){
-		$sampleresponse = '{"Available":false,"RequestLink":{"RequestMessage":"At this time, all EZBorrow services are suspended at your institution. Please contact staff at your institution\'s library with any questions."},"OrigNumberOfRecords":1,"PickupLocation":[{"PickupLocationCode":"HILL","PickupLocationDescription":"Hillman"},{"PickupLocationCode":"LCSU","PickupLocationDescription":"LCSU"}]}';
+			$sampleresponse = '{"Available":true,"RequestLink":{"RequestMessage":"At this time, all EZBorrow services are suspended at your institution. Please contact staff at your institution\'s library with any questions."},"OrigNumberOfRecords":1,"PickupLocation":[{"PickupLocationCode":"HILL","PickupLocationDescription":"Hillman"},{"PickupLocationCode":"LCSU","PickupLocationDescription":"LCSU"}]}';
 			return $sampleresponse;
-		//for real you'll have to actually make and handle the search request
+			
+			//for real you'll have to actually make and handle the search request
 			$data = json_encode(array('PartnershipId'=>'EZB','ExactSearch'=>array(['Type'=>'OCLC','Value'=>$oclc])));
 			$response = $this->ez_api()->post("dws/item/available?aid=$aid", utf8_encode($data));
 			return $response->response;
@@ -116,8 +118,10 @@ Class Flow {
 	}
 	
 	/* ======== EZ REQUEST ======== */
-	public function ezRequest(){		
+	public function ezRequest($pickup,$oclc,$notes){		
 		if ($aid = $this->ezAuth()){
+			return '{"Problem":{"ErrorMessage":"Youre blocked!"}}';
+			//for real you will use code below
 			$data = array('PartnershipId'=>'EZB','PickupLocation'=>$pickup,'ExactSearch'=>array(['Type'=>'OCLC','Value'=>$oclc]));
 			if ($notes){
 				$data['Notes']=$notes;
@@ -180,12 +184,20 @@ if($type=='book'){
 		//No
 		else{
 			//ILLIAD
+			echo $result;
+			/*
 			$ill = new Flow();
 			$ill->illiad($type,$campus);
+			*/
 		}
 	}
 }
-
+if($pickup && $pickup!==''){
+	$ezb = new Flow();
+	$result = $ezb->ezRequest($pickup,$oclc,$notes);
+	header("HTTP/1.1 200 OK");
+	echo $result;
+}
 // Chapter and Article requests go straight to ILLIAD
 if ($type=='chapter'){
 	switch($campus){
