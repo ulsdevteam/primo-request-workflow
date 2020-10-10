@@ -168,15 +168,60 @@ class Illiad {
 			case "UPT":
 			case "UPJ":
 			case "PIT":
-			$illiadLink = "https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll?Action=10&Form=21&LoanTitle=".$oUrl['title']."&LoanAuthor=".$oUrl['author']."&LoanPublisher=".$oUrl['publisher']."&LoanPlace=".$oUrl['location']."&LoanDate=".$oUrl['year']."&ESPNumber=".$oUrl['oclc'];
-			$decoded->{'illiadLink'}=$illiadLink;
-			echo json_encode($decoded);
-			break;
-	        case "HSLS":
-	        header("Location: https://illiad.hsls.pitt.edu/illiad/illiad.dll?Action=10&Form=30&LoanTitle=".$oUrl['title']."&LoanAuthor=".$oUrl['author']."&LoanPublisher=".$oUrl['publisher']."&LoanPlace=".$oUrl['location']."&LoanDate=".$oUrl['year']."&ESPNumber=".$oUrl['oclc']);
-	        break;
+				$illiadLink = self::buildUrl($type, $campus, $oUrl);
+				$decoded->{'illiadLink'}=$illiadLink;
+				echo json_encode($decoded);
+				break;
+			case "HSLS":
+				header("Location: ".self::buildUrl($type, $campus, $oUrl));
+				break;
 		} 
 	}
+
+	public static function buildUrl($type, $target, $params) {
+		$url = '';
+		// Service address
+		switch ($campus) {
+			case "UPG":
+			case "UPB":
+			case "UPT":
+			case "UPJ":
+			case "PIT":
+				$url = 'https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll';
+				break;
+			case "HSLS":
+				$url = 'https://illiad.hsls.pitt.edu/illiad/illiad.dll';
+				break;
+		}
+		// Action and Form
+		switch ($type) {
+			case 'book':
+				$url .= '?Action=10&Form='.($campus === 'HSLS' ? '30' : '21');
+				break;
+			case 'chapter':
+				$url .= '?Action=10&Form=23';
+			case 'article':
+				$url .= '?Action=10&Form=22';
+		}
+		// Parameters
+		$map = array();
+		switch ($type) {
+			case 'book':
+				$map = array('LoanTitle' => 'title', 'LoanAuthor' => 'author', 'LoanPublisher' => 'publisher', 'LoanPlace' => 'location', 'LoanDate' => 'year', 'ESPNumber' => 'oclc');
+				break;
+			case 'article':
+				// article specific
+				$map = array('PhotoJournalVolume' => 'volume', 'PhotoJournalIssue' => 'issue', 'PhotoJournalMonth' => 'month', 'PhotoArticleTitle' => 'atitle', 'PhotoJournalInclusivePages' => 'pages');
+			case 'chapter':
+				// both articles and chapters
+				$map = array_merge($map, array('PhotoJournalTitle' => 'title', 'PhotoItemAuthor' => 'author', 'PhotoItemPublisher' => 'publisher', 'PhotoItemPlace' => 'location', 'PhotoJournalYear' => 'year', 'ESPNumber' => 'oclc'));
+				break;
+		}
+		foreach ($map as $k => $v) {
+			$url .= '&'.$k.'='.$params[$v];
+		}
+	}
+	return $url;
 }
 
 
@@ -225,37 +270,7 @@ if($pickup && $pickup!==''){
 	echo $result;
 }
 // Chapter and Article requests go straight to ILLIAD
-if ($type=='chapter'){
-	switch($campus){
-		case "UPG":
-		case "UPB":
-		case "UPT":
-		case "UPJ":
-		case "PIT":
-			header("Location: https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll?Action=10&Form=23&PhotoJournalTitle=".$title."&PhotoItemAuthor=".$author."&PhotoItemPublisher=".$publisher."&PhotoItemPlace=".$location."&PhotoJournalYear=".$year."&ESPNumber=".$oclc);
-		break;
-
-		case "HSLS":
-			header("Location: https://illiad.hsls.pitt.edu/illiad/illiad.dll?Action=10&Form=23&PhotoJournalTitle=".$title."&PhotoItemAuthor=".$author."&PhotoItemPublisher=".$publisher."&PhotoItemPlace=".$location."&PhotoJournalYear=".$year."&ESPNumber=".$oclc);
-		break;
-	}
-}
-
-if ($type=='article'){
-	switch($campus){
-		case "UPG":
-                case "UPB":
-                case "UPT":
-                case "UPJ":
-		case "PIT":
-			header("Location: https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll?Action=10&Form=22&PhotoJournalTitle=".$title."&ISSN=".$issn."&PhotoArticleAuthor=".$author."&PhotoItemPublisher=".$publisher."&PhotoItemPlace=".$location."&PhotoJournalYear=".$year."&PhotoJournalVolume=".$volume."&PhotoJournalIssue=".$issue."&PhotoJournalMonth=".$month."&PhotoArticleTitle=".$atitle."&PhotoJournalInclusivePages=".$pages."&ESPNumber=".$oclc);
-                break;
-
-                case "HSLS":
-                        header("Location: https://illiad.hsls.pitt.edu/illiad/illiad.dll?Action=10&Form=22&PhotoJournalTitle=".$title."&ISSN=".$issn."&PhotoArticleAuthor=".$author."&PhotoItemPublisher=".$publisher."&PhotoItemPlace=".$location."&PhotoJournalYear=".$year."&PhotoJournalVolume=".$volume."&PhotoJournalIssue=".$issue."&PhotoJournalMonth=".$month."&PhotoArticleTitle=".$atitle."&PhotoJournalInclusivePages=".$pages."&ESPNumber=".$oclc);
-                break;
-        }
-}
+header('Location: '.Illiad::buildUrl($type, $campus, $userParams));
 
 
 ?>
