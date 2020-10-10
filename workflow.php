@@ -20,38 +20,23 @@ $atitle = urlencode($_GET['atitle']);
 $pages = $_GET['pages'];
 $pickup = $_GET['pickup'];
 
-Class Flow {
+Class Alma {
+
+	private $api;
 	/*
 	*returns ExLibris API function
 	*/
-	public function exl_api(){
+	public function __construct(){
 		include_once 'vendor/tcdent/php-restclient/restclient.php';
 		include_once '../../configs/config.php';
 		
-		$newRequest = new RestClient([
+		$this->api = new RestClient([
 			'base_url' => 'https://api-na.hosted.exlibrisgroup.com/',
 			'headers' => ['Authorization' => 'apikey '. EXL_API_KEY,
 						  'Accept' => 'application/json',
 						  'Content-Type'=>' application/json',
 						 ],
 		]);
-		return $newRequest;
-	}
-
-	/*
-	*returns Relais EZ Borrow API function
-	*/
-	public function ez_api(){
-		include_once 'vendor/tcdent/php-restclient/restclient.php';
-		include_once '../../configs/config.php';
-
-		$newRequest = new RestClient([
-			'base_url' => 'https://e-zborrow.relais-host.com/',
-			'headers'  => ['Accept' => 'application/json',
-						   'Content-Type'=>' application/json',
-						  ],
-		]);
-		return $newRequest;
 	}
 
 	/*
@@ -72,7 +57,7 @@ Class Flow {
 	* returns php object describing the requested user's info in Alma
 	*/
 	public function getUserRecord($userId){
-		$user = $this->exl_api()->get("almaws/v1/users/$userId");
+		$user = $this->api->get("almaws/v1/users/$userId");
 		
 		//SUCCESS: GOT INDIVIDUAL USER OBJECT
 		if($user->info->http_code == 200) {
@@ -86,12 +71,32 @@ Class Flow {
 			return false;
 		}
 	}
+}
+
+class EZBorrow {
+
+	private $api;
 	
+	/*
+	*returns Relais EZ Borrow API function
+	*/
+	public function __construct(){
+		include_once 'vendor/tcdent/php-restclient/restclient.php';
+		include_once '../../configs/config.php';
+
+		$this->api = new RestClient([
+			'base_url' => 'https://e-zborrow.relais-host.com/',
+			'headers'  => ['Accept' => 'application/json',
+						   'Content-Type'=>' application/json',
+						  ],
+		]);
+	}
+
 	/* ======= EZ AUTH ======== */
 	public function ezAuth(){
 		$auth = array('ApiKey' => RELAIS_API_KEY, 'UserGroup' => "patron", 'PartnershipId' => "EZB", 'LibrarySymbol' => "PITT", 'PatronId' => RELAIS_API_PATRON);
 		$send_data = json_encode($auth);
-		$response = $this->ez_api()->post("portal-service/user/authentication", utf8_encode($send_data));
+		$response = $this->api->post("portal-service/user/authentication", utf8_encode($send_data));
 		$content = json_decode($response->response);
 		// print_r($response);
 		if ($response->info->http_code == 200 || $response->info->http_code == 201) {
@@ -112,7 +117,7 @@ Class Flow {
 			
 			//for real you'll have to actually make and handle the search request
 			$data = json_encode(array('PartnershipId'=>'EZB','ExactSearch'=>array(['Type'=>'OCLC','Value'=>$oclc])));
-			$response = $this->ez_api()->post("dws/item/available?aid=$aid", utf8_encode($data));
+			$response = $this->api->post("dws/item/available?aid=$aid", utf8_encode($data));
 			return $response->response;
 		}
 	}
@@ -127,10 +132,14 @@ Class Flow {
 				$data['Notes']=$notes;
 			}
 			$data = json_encode($data);
-			$response = $this->ez_api()->post("dws/item/add?aid=$aid", utf8_encode($data));
+			$response = $this->api->post("dws/item/add?aid=$aid", utf8_encode($data));
 			return $response->response;
 		}
 	}
+
+}
+
+class Illiad {
 
 	/* ======== ILLIAD ======== */
 	public function illiad($type,$campus){
@@ -154,7 +163,7 @@ Class Flow {
 
 
 //Get the logged-in user's campus code to see which library system serves them
-$user = new Flow();
+$user = new Alma();
 $userId = $user->getUserId();
 if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code && $user->getUserRecord($userId)->user_group){
 	$campus = $user->getUserRecord($userId)->campus_code->value;
@@ -168,12 +177,12 @@ if($type=='book'){
 	//this one special group isn't eligible to use EZBorrow
 	//ILLIAD
 	if ($user_group=='UPPROGRAM'){
-		$ill = new Flow();
+		$ill = new Illiad();
 		$ill->illiad($type,$campus);
 	}
 	else{
 		//EZ Borrow?
-		$ezb = new Flow();
+		$ezb = new EZBorrow();
 		$result = $ezb->ezSearch($oclc);
 		$decoded = json_decode($result);
 		//Yes
@@ -193,7 +202,7 @@ if($type=='book'){
 	}
 }
 if($pickup && $pickup!==''){
-	$ezb = new Flow();
+	$ezb = new EZBorrow();
 	$result = $ezb->ezRequest($pickup,$oclc,$notes);
 	header("HTTP/1.1 200 OK");
 	echo $result;
