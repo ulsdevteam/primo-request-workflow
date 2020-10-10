@@ -23,6 +23,8 @@ $pickup = $_GET['pickup'];
 Class Alma {
 
 	private $api;
+
+	private $userCache = array();
 	/*
 	*returns ExLibris API function
 	*/
@@ -57,12 +59,16 @@ Class Alma {
 	* returns php object describing the requested user's info in Alma
 	*/
 	public function getUserRecord($userId){
+		if (isset($this->userCache[$userId])) {
+			return $this->userCache[$userId];
+		}
 		$user = $this->api->get("almaws/v1/users/$userId");
 		
 		//SUCCESS: GOT INDIVIDUAL USER OBJECT
 		if($user->info->http_code == 200) {
 			$output = $user->response;
 			$output = json_decode($output);
+			$this->userCache[$userId] = $output;
 				return $output;
 		}
 		//COULDN'T GET INDIVIDUAL USER OBJECT
