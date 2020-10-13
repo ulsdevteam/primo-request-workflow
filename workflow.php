@@ -220,8 +220,8 @@ class Illiad {
 		foreach ($map as $k => $v) {
 			$url .= '&'.$k.'='.$params[$v];
 		}
+		return $url;
 	}
-	return $url;
 }
 
 
