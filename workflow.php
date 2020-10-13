@@ -144,7 +144,7 @@ class EZBorrow {
 	/* ======== EZ REQUEST ======== */
 	public function ezRequest($pickup,$oclc,$notes){		
 		if ($aid = $this->ezAuth()){
-			return '{"Problem":{"ErrorMessage":"Youre blocked!"}}';
+			return '{"Problem":{"Message":"You are blocked!"}}';
 			//for real you will use code below
 			$data = array('PartnershipId'=>'EZB','PickupLocation'=>$pickup,'ExactSearch'=>array(['Type'=>'OCLC','Value'=>$oclc]));
 			if ($notes){
