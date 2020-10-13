@@ -4,54 +4,54 @@
 # Uses this PHP Rest Client: https://github.com/tcdent/php-restclient
 #
 
-//Get params from url for use in constructing illiad url
-$title = urlencode($_GET['title']);
-$author = urlencode($_GET['author']);
-$publisher = urlencode($_GET['publisher']);
-$location = urlencode($_GET['location']);
-$year = $_GET['year'];
-$oclc = $_GET['oclc'];
-$issn = $_GET['issn'];
-$type = $_GET['requesttype'];
-$volume = $_GET['volume'];
-$issue = $_GET['issue'];
-$month = $_GET['month'];
-$atitle = urlencode($_GET['atitle']);
-$pages = $_GET['pages'];
-$pickup = $_GET['pickup'];
+$openurlParams = array(
+'title',
+'author',
+'publisher',
+'location',
+'year',
+'oclc',
+'issn',
+'requesttype',
+'volume',
+'issue',
+'month',
+'atitle',
+'pages',
+'pickup',
+);
 
-Class Flow {
+$userParams = array();
+foreach ($openurlParams as $p) {
+	// Legacy: set the variable by name
+	if ($p === 'requesttype') {
+		$type = urlencode($_GET[$p]);
+	} else {
+		$$p = urlencode($_GET[$p]);
+	}
+	// Preferred: create an array for passing around
+	$userParams[$p] = urlencode($_GET[$p]);
+}
+
+Class Alma {
+
+	private $api;
+
+	private $userCache = array();
 	/*
 	*returns ExLibris API function
 	*/
-	public function exl_api(){
+	public function __construct(){
 		include_once 'vendor/tcdent/php-restclient/restclient.php';
 		include_once '../../configs/config.php';
 		
-		$newRequest = new RestClient([
+		$this->api = new RestClient([
 			'base_url' => 'https://api-na.hosted.exlibrisgroup.com/',
 			'headers' => ['Authorization' => 'apikey '. EXL_API_KEY,
 						  'Accept' => 'application/json',
 						  'Content-Type'=>' application/json',
 						 ],
 		]);
-		return $newRequest;
-	}
-
-	/*
-	*returns Relais EZ Borrow API function
-	*/
-	public function ez_api(){
-		include_once 'vendor/tcdent/php-restclient/restclient.php';
-		include_once '../../configs/config.php';
-
-		$newRequest = new RestClient([
-			'base_url' => 'https://e-zborrow.relais-host.com/',
-			'headers'  => ['Accept' => 'application/json',
-						   'Content-Type'=>' application/json',
-						  ],
-		]);
-		return $newRequest;
 	}
 
 	/*
@@ -72,12 +72,16 @@ Class Flow {
 	* returns php object describing the requested user's info in Alma
 	*/
 	public function getUserRecord($userId){
-		$user = $this->exl_api()->get("almaws/v1/users/$userId");
+		if (isset($this->userCache[$userId])) {
+			return $this->userCache[$userId];
+		}
+		$user = $this->api->get("almaws/v1/users/$userId");
 		
 		//SUCCESS: GOT INDIVIDUAL USER OBJECT
 		if($user->info->http_code == 200) {
 			$output = $user->response;
 			$output = json_decode($output);
+			$this->userCache[$userId] = $output;
 				return $output;
 		}
 		//COULDN'T GET INDIVIDUAL USER OBJECT
@@ -86,12 +90,32 @@ Class Flow {
 			return false;
 		}
 	}
+}
+
+class EZBorrow {
+
+	private $api;
 	
+	/*
+	*returns Relais EZ Borrow API function
+	*/
+	public function __construct(){
+		include_once 'vendor/tcdent/php-restclient/restclient.php';
+		include_once '../../configs/config.php';
+
+		$this->api = new RestClient([
+			'base_url' => 'https://e-zborrow.relais-host.com/',
+			'headers'  => ['Accept' => 'application/json',
+						   'Content-Type'=>' application/json',
+						  ],
+		]);
+	}
+
 	/* ======= EZ AUTH ======== */
 	public function ezAuth(){
 		$auth = array('ApiKey' => RELAIS_API_KEY, 'UserGroup' => "patron", 'PartnershipId' => "EZB", 'LibrarySymbol' => "PITT", 'PatronId' => RELAIS_API_PATRON);
 		$send_data = json_encode($auth);
-		$response = $this->ez_api()->post("portal-service/user/authentication", utf8_encode($send_data));
+		$response = $this->api->post("portal-service/user/authentication", utf8_encode($send_data));
 		$content = json_decode($response->response);
 		// print_r($response);
 		if ($response->info->http_code == 200 || $response->info->http_code == 201) {
@@ -112,7 +136,7 @@ Class Flow {
 			
 			//for real you'll have to actually make and handle the search request
 			$data = json_encode(array('PartnershipId'=>'EZB','ExactSearch'=>array(['Type'=>'OCLC','Value'=>$oclc])));
-			$response = $this->ez_api()->post("dws/item/available?aid=$aid", utf8_encode($data));
+			$response = $this->api->post("dws/item/available?aid=$aid", utf8_encode($data));
 			return $response->response;
 		}
 	}
@@ -127,34 +151,82 @@ Class Flow {
 				$data['Notes']=$notes;
 			}
 			$data = json_encode($data);
-			$response = $this->ez_api()->post("dws/item/add?aid=$aid", utf8_encode($data));
+			$response = $this->api->post("dws/item/add?aid=$aid", utf8_encode($data));
 			return $response->response;
 		}
 	}
 
+}
+
+class Illiad {
+
 	/* ======== ILLIAD ======== */
-	public function illiad($type,$campus){
-	    global $title,$author,$publisher,$location,$year,$oclc;
+	public static function bookRequest($type,$campus,$oUrl){
 		switch($campus){
 			case "UPG":
 			case "UPB":
 			case "UPT":
 			case "UPJ":
 			case "PIT":
-			$illiadLink = "https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll?Action=10&Form=21&LoanTitle=".$title."&LoanAuthor=".$author."&LoanPublisher=".$publisher."&LoanPlace=".$location."&LoanDate=".$year."&ESPNumber=".$oclc;
-			$decoded->{'illiadLink'}=$illiadLink;
-			echo json_encode($decoded);
-			break;
-	        case "HSLS":
-	        header("Location: https://illiad.hsls.pitt.edu/illiad/illiad.dll?Action=10&Form=30&LoanTitle=".$title."&LoanAuthor=".$author."&LoanPublisher=".$publisher."&LoanPlace=".$location."&LoanDate=".$year."&ESPNumber=".$oclc);
-	        break;
+				$illiadLink = self::buildUrl($type, $campus, $oUrl);
+				$decoded->{'illiadLink'}=$illiadLink;
+				echo json_encode($decoded);
+				break;
+			case "HSLS":
+				header("Location: ".self::buildUrl($type, $campus, $oUrl));
+				break;
 		} 
 	}
+
+	public static function buildUrl($type, $target, $params) {
+		$url = '';
+		// Service address
+		switch ($campus) {
+			case "UPG":
+			case "UPB":
+			case "UPT":
+			case "UPJ":
+			case "PIT":
+				$url = 'https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll';
+				break;
+			case "HSLS":
+				$url = 'https://illiad.hsls.pitt.edu/illiad/illiad.dll';
+				break;
+		}
+		// Action and Form
+		switch ($type) {
+			case 'book':
+				$url .= '?Action=10&Form='.($campus === 'HSLS' ? '30' : '21');
+				break;
+			case 'chapter':
+				$url .= '?Action=10&Form=23';
+			case 'article':
+				$url .= '?Action=10&Form=22';
+		}
+		// Parameters
+		$map = array();
+		switch ($type) {
+			case 'book':
+				$map = array('LoanTitle' => 'title', 'LoanAuthor' => 'author', 'LoanPublisher' => 'publisher', 'LoanPlace' => 'location', 'LoanDate' => 'year', 'ESPNumber' => 'oclc');
+				break;
+			case 'article':
+				// article specific
+				$map = array('PhotoJournalVolume' => 'volume', 'PhotoJournalIssue' => 'issue', 'PhotoJournalMonth' => 'month', 'PhotoArticleTitle' => 'atitle', 'PhotoJournalInclusivePages' => 'pages');
+			case 'chapter':
+				// both articles and chapters
+				$map = array_merge($map, array('PhotoJournalTitle' => 'title', 'PhotoItemAuthor' => 'author', 'PhotoItemPublisher' => 'publisher', 'PhotoItemPlace' => 'location', 'PhotoJournalYear' => 'year', 'ESPNumber' => 'oclc'));
+				break;
+		}
+		foreach ($map as $k => $v) {
+			$url .= '&'.$k.'='.$params[$v];
+		}
+	}
+	return $url;
 }
 
 
 //Get the logged-in user's campus code to see which library system serves them
-$user = new Flow();
+$user = new Alma();
 $userId = $user->getUserId();
 if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code && $user->getUserRecord($userId)->user_group){
 	$campus = $user->getUserRecord($userId)->campus_code->value;
@@ -168,12 +240,11 @@ if($type=='book'){
 	//this one special group isn't eligible to use EZBorrow
 	//ILLIAD
 	if ($user_group=='UPPROGRAM'){
-		$ill = new Flow();
-		$ill->illiad($type,$campus);
+		Illiad::bookRequest($type,$campus,$userParams);
 	}
 	else{
 		//EZ Borrow?
-		$ezb = new Flow();
+		$ezb = new EZBorrow();
 		$result = $ezb->ezSearch($oclc);
 		$decoded = json_decode($result);
 		//Yes
@@ -193,43 +264,13 @@ if($type=='book'){
 	}
 }
 if($pickup && $pickup!==''){
-	$ezb = new Flow();
+	$ezb = new EZBorrow();
 	$result = $ezb->ezRequest($pickup,$oclc,$notes);
 	header("HTTP/1.1 200 OK");
 	echo $result;
 }
 // Chapter and Article requests go straight to ILLIAD
-if ($type=='chapter'){
-	switch($campus){
-		case "UPG":
-		case "UPB":
-		case "UPT":
-		case "UPJ":
-		case "PIT":
-			header("Location: https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll?Action=10&Form=23&PhotoJournalTitle=".$title."&PhotoItemAuthor=".$author."&PhotoItemPublisher=".$publisher."&PhotoItemPlace=".$location."&PhotoJournalYear=".$year."&ESPNumber=".$oclc);
-		break;
-
-		case "HSLS":
-			header("Location: https://illiad.hsls.pitt.edu/illiad/illiad.dll?Action=10&Form=23&PhotoJournalTitle=".$title."&PhotoItemAuthor=".$author."&PhotoItemPublisher=".$publisher."&PhotoItemPlace=".$location."&PhotoJournalYear=".$year."&ESPNumber=".$oclc);
-		break;
-	}
-}
-
-if ($type=='article'){
-	switch($campus){
-		case "UPG":
-                case "UPB":
-                case "UPT":
-                case "UPJ":
-		case "PIT":
-			header("Location: https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll?Action=10&Form=22&PhotoJournalTitle=".$title."&ISSN=".$issn."&PhotoArticleAuthor=".$author."&PhotoItemPublisher=".$publisher."&PhotoItemPlace=".$location."&PhotoJournalYear=".$year."&PhotoJournalVolume=".$volume."&PhotoJournalIssue=".$issue."&PhotoJournalMonth=".$month."&PhotoArticleTitle=".$atitle."&PhotoJournalInclusivePages=".$pages."&ESPNumber=".$oclc);
-                break;
-
-                case "HSLS":
-                        header("Location: https://illiad.hsls.pitt.edu/illiad/illiad.dll?Action=10&Form=22&PhotoJournalTitle=".$title."&ISSN=".$issn."&PhotoArticleAuthor=".$author."&PhotoItemPublisher=".$publisher."&PhotoItemPlace=".$location."&PhotoJournalYear=".$year."&PhotoJournalVolume=".$volume."&PhotoJournalIssue=".$issue."&PhotoJournalMonth=".$month."&PhotoArticleTitle=".$atitle."&PhotoJournalInclusivePages=".$pages."&ESPNumber=".$oclc);
-                break;
-        }
-}
+header('Location: '.Illiad::buildUrl($type, $campus, $userParams));
 
 
 ?>
