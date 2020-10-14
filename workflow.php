@@ -227,7 +227,6 @@ class Illiad {
 		}
 		return $url;
 	}
-	//return $url;
 }
 
 
