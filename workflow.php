@@ -23,14 +23,20 @@ $openurlParams = array(
 
 $userParams = array();
 foreach ($openurlParams as $p) {
+	if (isset($_GET[$p])){
 	// Legacy: set the variable by name
 	if ($p === 'requesttype') {
 		$type = urlencode($_GET[$p]);
 	} else {
+		//$$p sets a variable named with the value of $p
+		//we also give it the value of $p here
+		//eg. $pages = urlencode(_GET['pages']);
 		$$p = urlencode($_GET[$p]);
 	}
 	// Preferred: create an array for passing around
+	// Instead of calling for $pages, we say $userParams['pages'];
 	$userParams[$p] = urlencode($_GET[$p]);
+	}
 }
 
 Class Alma {
@@ -169,8 +175,7 @@ class Illiad {
 			case "UPJ":
 			case "PIT":
 				$illiadLink = self::buildUrl($type, $campus, $oUrl);
-				$decoded->{'illiadLink'}=$illiadLink;
-				echo json_encode($decoded);
+				return $illiadLink;
 				break;
 			case "HSLS":
 				header("Location: ".self::buildUrl($type, $campus, $oUrl));
@@ -178,7 +183,7 @@ class Illiad {
 		} 
 	}
 
-	public static function buildUrl($type, $target, $params) {
+	public static function buildUrl($type, $campus, $params) {
 		$url = '';
 		// Service address
 		switch ($campus) {
@@ -220,8 +225,9 @@ class Illiad {
 		foreach ($map as $k => $v) {
 			$url .= '&'.$k.'='.$params[$v];
 		}
+		return $url;
 	}
-	return $url;
+	//return $url;
 }
 
 
@@ -255,23 +261,21 @@ if($type=='book'){
 		//No
 		else{
 			//ILLIAD
-			echo $result;
-			/*
-			$ill = new Flow();
-			$ill->illiad($type,$campus);
-			*/
+			$illiadLink = Illiad::bookRequest($type,$campus,$userParams);
+			$decoded->{'illiadLink'}=$illiadLink;
+			echo json_encode($decoded);
 		}
 	}
 }
-if($pickup && $pickup!==''){
+if (isset($pickup) && $pickup!==''){
 	$ezb = new EZBorrow();
 	$result = $ezb->ezRequest($pickup,$oclc,$notes);
 	header("HTTP/1.1 200 OK");
 	echo $result;
 }
 // Chapter and Article requests go straight to ILLIAD
+if ($type=='chapter'||$type=='article'){
 header('Location: '.Illiad::buildUrl($type, $campus, $userParams));
-
-
+}
 ?>
 

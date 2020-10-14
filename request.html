@@ -3,7 +3,7 @@
 <HTML>
    <HEAD>
       <TITLE>EZ Borrow API Testing</TITLE>
-      <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.10/angular.js"></script>
+      <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.10/angular.min.js"></script>
 	  <base href="/">
    </HEAD>
    <BODY ng-app="ezBorrowAPI" ng-controller="ezBorrowAPIController">
@@ -55,6 +55,7 @@ app.controller('ezBorrowAPIController',['$window','$location','$scope','$http', 
 		else{
 			if (response.Available){
 				$scope.pickform = true;//response.Available;
+				$scope.ezsearch = true;
 				$scope.message=response.RequestLink.RequestMessage;
     			//$scope.message =  response.Available;
     			$scope.locations = response.PickupLocation;
@@ -68,7 +69,9 @@ app.controller('ezBorrowAPIController',['$window','$location','$scope','$http', 
 				$scope.pittcatLink = 'https://pitt-psb.primo.exlibrisgroup.com/discovery/fulldisplay?context=L&vid=01PITT_INST:ezborrow&docid='+referrer;
 			}
 		}
-	});
+	}).catch(function() {
+	  console.log('ajax failure');// handle errors
+	  });;
 //once the user submits a pickup location, we send the request to Relais and wait for confirmation that the book is ordered
 $scope.submit = function(){
 	$scope.ezsearch = false;
