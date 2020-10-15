@@ -15,6 +15,11 @@
 		<label for="ezbPickupLocs">Choose a pickup location:</label>
 		<select id="ezbPickupLocs" ng-options="plocation.PickupLocationDescription as plocation.PickupLocationDescription for plocation in locations track by plocation.PickupLocationCode" ng-model="pickup">
 		</select>
+		<br>
+		<label for="notes">Notes: If you need a specific volume from a multivolume set, indicate that here.  <br>If you would like a no-contact pickup outside the location you chose, enter 'no contact pickup' as well</label>
+		<br>
+		<input name="notes" type="text" ng-model="notes">
+		<br>
 		<input type="submit" id="ezRequestSubmit" value="Order this book">
 	</form>
 	<p ng-if="showConf">Confirmation: {{conf}}</p>
@@ -60,6 +65,7 @@ app.controller('ezBorrowAPIController',['$window','$location','$scope','$http', 
     			//$scope.message =  response.Available;
     			$scope.locations = response.PickupLocation;
 				$scope.pickup = '';
+				$scope.notes = '';
 			}
 			else{
 				$scope.message= 'This book is not available through EZ-Borrow. Would you like to place an Interlibrary Loan Request? This service takes 7-14 days.';
@@ -78,7 +84,7 @@ $scope.submit = function(){
 	$scope.pickform = false;
 	$scope.showConf = true;
 	$scope.conf = 'Waiting for response...';
-	$http.get('workflow.php?pickup='+this.pickup+'&oclc='+oclc)
+	$http.get('workflow.php?pickup='+this.pickup+'&notes='+this.notes+'&oclc='+oclc)
 	.then(function(response){
 		var response = angular.fromJson(response.data);
 		if (response.Problem){
