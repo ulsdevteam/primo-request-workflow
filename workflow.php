@@ -19,6 +19,7 @@ $openurlParams = array(
 'atitle',
 'pages',
 'pickup',
+'notes',
 );
 
 $userParams = array();
@@ -137,8 +138,8 @@ class EZBorrow {
 	/* ======== EZ SEARCH ======== */
 	public function ezSearch($oclc){
 		if ($aid = $this->ezAuth()){
-			$sampleresponse = '{"Available":true,"RequestLink":{"RequestMessage":"At this time, all EZBorrow services are suspended at your institution. Please contact staff at your institution\'s library with any questions."},"OrigNumberOfRecords":1,"PickupLocation":[{"PickupLocationCode":"HILL","PickupLocationDescription":"Hillman"},{"PickupLocationCode":"LCSU","PickupLocationDescription":"LCSU"}]}';
-			return $sampleresponse;
+			//$sampleresponse = '{"Available":true,"RequestLink":{"RequestMessage":"At this time, all EZBorrow services are suspended at your institution. Please contact staff at your institution\'s library with any questions."},"OrigNumberOfRecords":1,"PickupLocation":[{"PickupLocationCode":"HILL","PickupLocationDescription":"Hillman"},{"PickupLocationCode":"LCSU","PickupLocationDescription":"LCSU"}]}';
+			//return $sampleresponse;
 			
 			//for real you'll have to actually make and handle the search request
 			$data = json_encode(array('PartnershipId'=>'EZB','ExactSearch'=>array(['Type'=>'OCLC','Value'=>$oclc])));
@@ -150,13 +151,15 @@ class EZBorrow {
 	/* ======== EZ REQUEST ======== */
 	public function ezRequest($pickup,$oclc,$notes){		
 		if ($aid = $this->ezAuth()){
-			return '{"Problem":{"Message":"You are blocked!"}}';
+			//return '{"Problem":{"Message":"You are blocked!"}}';
 			//for real you will use code below
 			$data = array('PartnershipId'=>'EZB','PickupLocation'=>$pickup,'ExactSearch'=>array(['Type'=>'OCLC','Value'=>$oclc]));
 			if ($notes){
 				$data['Notes']=$notes;
 			}
 			$data = json_encode($data);
+			//return early for testing:
+	 		//return $data;
 			$response = $this->api->post("dws/item/add?aid=$aid", utf8_encode($data));
 			return $response->response;
 		}
@@ -205,8 +208,10 @@ class Illiad {
 				break;
 			case 'chapter':
 				$url .= '?Action=10&Form=23';
+				break;
 			case 'article':
 				$url .= '?Action=10&Form=22';
+				break;
 		}
 		// Parameters
 		$map = array();
@@ -217,6 +222,7 @@ class Illiad {
 			case 'article':
 				// article specific
 				$map = array('PhotoJournalVolume' => 'volume', 'PhotoJournalIssue' => 'issue', 'PhotoJournalMonth' => 'month', 'PhotoArticleTitle' => 'atitle', 'PhotoJournalInclusivePages' => 'pages');
+				break;
 			case 'chapter':
 				// both articles and chapters
 				$map = array_merge($map, array('PhotoJournalTitle' => 'title', 'PhotoItemAuthor' => 'author', 'PhotoItemPublisher' => 'publisher', 'PhotoItemPlace' => 'location', 'PhotoJournalYear' => 'year', 'ESPNumber' => 'oclc'));
@@ -266,7 +272,12 @@ if($type=='book'){
 		}
 	}
 }
+//REQUEST IT
 if (isset($pickup) && $pickup!==''){
+	$pickup = urldecode($pickup);
+	if (isset($notes)){
+		$notes=urldecode($notes);
+	}
 	$ezb = new EZBorrow();
 	$result = $ezb->ezRequest($pickup,$oclc,$notes);
 	header("HTTP/1.1 200 OK");
