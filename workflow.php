@@ -69,7 +69,6 @@ Class Alma {
 			return getenv('HTTP_CN');
 		}
 		else {
-			print 'no id';
 			return false;
 		}
 	}
@@ -119,8 +118,8 @@ class EZBorrow {
 	}
 
 	/* ======= EZ AUTH ======== */
-	public function ezAuth(){
-		$auth = array('ApiKey' => RELAIS_API_KEY, 'UserGroup' => "patron", 'PartnershipId' => "EZB", 'LibrarySymbol' => "PITT", 'PatronId' => RELAIS_API_PATRON);
+	public function ezAuth($userBarcode){
+		$auth = array('ApiKey' => RELAIS_API_KEY, 'UserGroup' => "patron", 'PartnershipId' => "EZB", 'LibrarySymbol' => "PITT", 'PatronId' => $userBarcode);
 		$send_data = json_encode($auth);
 		$response = $this->api->post("portal-service/user/authentication", utf8_encode($send_data));
 		$content = json_decode($response->response);
@@ -136,8 +135,8 @@ class EZBorrow {
 	}
 
 	/* ======== EZ SEARCH ======== */
-	public function ezSearch($oclc){
-		if ($aid = $this->ezAuth()){
+	public function ezSearch($userBarcode,$oclc){
+		if ($aid = $this->ezAuth($userBarcode)){
 			//$sampleresponse = '{"Available":true,"RequestLink":{"RequestMessage":"At this time, all EZBorrow services are suspended at your institution. Please contact staff at your institution\'s library with any questions."},"OrigNumberOfRecords":1,"PickupLocation":[{"PickupLocationCode":"HILL","PickupLocationDescription":"Hillman"},{"PickupLocationCode":"LCSU","PickupLocationDescription":"LCSU"}]}';
 			//return $sampleresponse;
 			
@@ -242,11 +241,7 @@ $userId = $user->getUserId();
 if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code && $user->getUserRecord($userId)->user_group){
 	$campus = $user->getUserRecord($userId)->campus_code->value;
 	$user_group = $user->getUserRecord($userId)->user_group->value;
-}
-else{
-	echo "Error finding patron record";
-}
-
+	$userBarcode = $user->getUserRecord($userId)->user_identifier[0]->value;
 if($type=='book'){
 	//this one special group isn't eligible to use EZBorrow
 	//ILLIAD
@@ -256,7 +251,7 @@ if($type=='book'){
 	else{
 		//EZ Borrow?
 		$ezb = new EZBorrow();
-		$result = $ezb->ezSearch($oclc);
+		$result = $ezb->ezSearch($userBarcode,$oclc);
 		$decoded = json_decode($result);
 		//Yes
 		if ($decoded->{'Available'}){
@@ -286,6 +281,10 @@ if (isset($pickup) && $pickup!==''){
 // Chapter and Article requests go straight to ILLIAD
 if ($type=='chapter'||$type=='article'){
 header('Location: '.Illiad::buildUrl($type, $campus, $userParams));
+}
+}
+else{
+	echo "Error finding patron record";
 }
 ?>
 
