@@ -238,10 +238,16 @@ class Illiad {
 //Get the logged-in user's campus code to see which library system serves them
 $user = new Alma();
 $userId = $user->getUserId();
-if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code && $user->getUserRecord($userId)->user_group){
+if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code && $user->getUserRecord($userId)->user_group && $user->getUserRecord($userId)->user_identifier){
 	$campus = $user->getUserRecord($userId)->campus_code->value;
 	$user_group = $user->getUserRecord($userId)->user_group->value;
-	$userBarcode = $user->getUserRecord($userId)->user_identifier[0]->value;
+	//a user record can have more than one type of identifier
+	foreach($user->getUserRecord($userId)->user_identifier as $identifier){
+		if ($identifier->id_type->value=='BARCODE'){
+			$userBarcode = $identifier->value;
+			break;
+		}
+	}
 if($type=='book'){
 	//this one special group isn't eligible to use EZBorrow
 	//ILLIAD
