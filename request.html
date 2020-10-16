@@ -1,12 +1,17 @@
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
-   "http://www.w3.org/TR/html4/strict.dtd">
-<HTML>
-   <HEAD>
-      <TITLE>EZ Borrow API Testing</TITLE>
-      <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.10/angular.min.js"></script>
-	  <base href="/">
-   </HEAD>
-   <BODY ng-app="ezBorrowAPI" ng-controller="ezBorrowAPIController">
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Request this item</title>
+		<link href="request.css" rel="stylesheet" type="text/css">
+		<script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.10/angular.min.js"></script>
+	  	<base href="/">
+	</head>
+	<body ng-app="ezBorrowAPI" ng-controller="ezBorrowAPIController">
+	  <div id="pitt-header"><a href="https://pittcat.pitt.edu"><img src="img/logos.png" alt="University of Pittsburgh Pittcat"></a>
+	  </div>
+	  <div id="main-content">
+	  	<h1>Request This Item</h1>
 	  <p ng-if="ezsearch">{{message}}</p>
 	  <a href="{{illiadLink}}" ng-if="unavailable">Order from Interlibrary Loan</a>
 	  <br>
@@ -23,7 +28,8 @@
 		<input type="submit" id="ezRequestSubmit" value="Order this book">
 	</form>
 	<p ng-if="showConf">Confirmation: {{conf}}</p>
-   </BODY>
+   </body>
+   </div>
 <script>
 var app=angular.module('ezBorrowAPI',[]);
 app.config(['$locationProvider', function ($locationProvider) { $locationProvider.html5Mode(true); }]);
@@ -47,7 +53,7 @@ app.controller('ezBorrowAPIController',['$window','$location','$scope','$http', 
 	var referrer = encodeURI($location.search().referrer);
 	//display wait message
 	$scope.ezsearch = true;
-    $scope.message = 'Searching 21 partner libraries...';
+    $scope.message = 'Searching EZ-Borrow partner libraries...';
 	
 	//Search for the book in EZ Borrow
 	//if the query string param variables are undefined they'll break it
@@ -98,4 +104,4 @@ $scope.submit = function(){
 }]);
 //<!--<option id="locationDefaultOption" selected="selected" value="defalt" disabled>Choose a location</option>-->
 </script>
-</HTML>
+</html>
