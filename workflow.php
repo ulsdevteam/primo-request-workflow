@@ -252,7 +252,7 @@ if($type=='book'){
 	//this one special group isn't eligible to use EZBorrow
 	//ILLIAD
 	if ($user_group=='UPPROGRAM'){
-		Illiad::bookRequest($type,$campus,$userParams);
+		header('Location: '.Illiad::buildUrl($type, $campus, $userParams));
 	}
 	else{
 		//EZ Borrow?
