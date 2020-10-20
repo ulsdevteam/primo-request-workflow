@@ -15,7 +15,7 @@
 	  <p ng-if="ezsearch">{{message}}</p>
 	  <a href="{{illiadLink}}" ng-if="unavailable">Order from Interlibrary Loan</a>
 	  <br>
-	  <a href="{{pittcatLink}}" ng-if="unavailable">Go back to PittCat</a>
+	  <a href="{{pittcatLink}}" ng-if="recall">Request a Recall</a>
     <form ng-if="pickform" ng-submit="submit()">
 		<label for="ezbPickupLocs">Choose a pickup location:</label>
 		<select id="ezbPickupLocs" ng-options="plocation.PickupLocationDescription as plocation.PickupLocationDescription for plocation in locations track by plocation.PickupLocationCode" ng-model="pickup">
@@ -51,19 +51,24 @@ app.controller('ezBorrowAPIController',['$window','$location','$scope','$http', 
 	var pages = encodeURI($location.search().pages);
 	var pickup = encodeURI($location.search().pickup);
 	var referrer = encodeURI($location.search().referrer);
+	var recall = encodeURI($location.search().recall);
 	//display wait message
 	$scope.ezsearch = true;
     $scope.message = 'Searching EZ-Borrow partner libraries...';
 	
 	//Search for the book in EZ Borrow
 	//if the query string param variables are undefined they'll break it
-	$http.get('workflow.php?title='+title+'&author='+author+'&publisher='+publisher+'&location='+location+'&year='+year+'&requesttype='+requestType+'&oclc='+oclc+'&issn='+issn+'&volume='+volume+'&issue='+issue+'&month='+month+'&atitle='+atitle+'&pages='+pages)
+	$http.get('workflow.php?title='+title+'&author='+author+'&publisher='+publisher+'&location='+location+'&year='+year+'&requesttype='+requestType+'&oclc='+oclc+'&issn='+issn+'&volume='+volume+'&issue='+issue+'&month='+month+'&atitle='+atitle+'&pages='+pages+'&ajax=true')
 	.then(function(response) {
 		var response = angular.fromJson(response.data);
 		if (response.Problem){
-			$scope.message= response.Problem.Message;
+			$scope.message = response.Problem.Message;
 	  	}
+		else if(response.AuthError){
+			$scope.message = response.AuthError;
+		}
 		else{
+			//EZ-BORROW
 			if (response.Available){
 				$scope.pickform = true;//response.Available;
 				$scope.ezsearch = true;
@@ -73,12 +78,16 @@ app.controller('ezBorrowAPIController',['$window','$location','$scope','$http', 
 				$scope.pickup = '';
 				$scope.notes = '';
 			}
+			//ILLIAD OR RECALL
 			else{
 				$scope.message= 'This book is not available through EZ-Borrow. Would you like to place an Interlibrary Loan Request? This service takes 7-14 days.';
 				$scope.unavailable = true;
 				$scope.illiadLink = response.illiadLink;
 				//https://pitt-psb.primo.exlibrisgroup.com/discovery/fulldisplay?docid=alma9986061173406236&context=L&vid=01PITT_INST:01PITT_INST
-				$scope.pittcatLink = 'https://pitt-psb.primo.exlibrisgroup.com/discovery/fulldisplay?context=L&vid=01PITT_INST:ezborrow&docid='+referrer;
+				if (recall==='true'){
+					$scope.recall = true;
+					$scope.pittcatLink = 'https://pitt-psb.primo.exlibrisgroup.com/discovery/fulldisplay?context=L&vid=01PITT_INST:ezborrow&docid='+referrer+'&recall=true';
+				}
 			}
 		}
 	}).catch(function() {
@@ -90,7 +99,7 @@ $scope.submit = function(){
 	$scope.pickform = false;
 	$scope.showConf = true;
 	$scope.conf = 'Waiting for response...';
-	$http.get('workflow.php?pickup='+this.pickup+'&notes='+this.notes+'&oclc='+oclc)
+	$http.get('workflow.php?pickup='+this.pickup+'&notes='+this.notes+'&oclc='+oclc+'&ajax=true')
 	.then(function(response){
 		var response = angular.fromJson(response.data);
 		if (response.Problem){

@@ -5,6 +5,7 @@
 #
 
 $openurlParams = array(
+'ajax',
 'title',
 'author',
 'publisher',
@@ -66,6 +67,7 @@ Class Alma {
 	*/
 	public function getUserId(){
 		if (getenv('HTTP_CN')) {
+			return false;
 			return getenv('HTTP_CN');
 		}
 		else {
@@ -82,17 +84,15 @@ Class Alma {
 			return $this->userCache[$userId];
 		}
 		$user = $this->api->get("almaws/v1/users/$userId");
-		
 		//SUCCESS: GOT INDIVIDUAL USER OBJECT
 		if($user->info->http_code == 200) {
 			$output = $user->response;
 			$output = json_decode($output);
 			$this->userCache[$userId] = $output;
-				return $output;
+			return $output;
 		}
 		//COULDN'T GET INDIVIDUAL USER OBJECT
 		else {
-			print 'Error: Failed to connect to your library account.  Please ask us for help with this at https://library.pitt.edu/askus';
 			return false;
 		}
 	}
@@ -290,7 +290,13 @@ header('Location: '.Illiad::buildUrl($type, $campus, $userParams));
 }
 }
 else{
-	echo "Error finding patron record";
+	if(isset($ajax)&&$ajax==='true'){
+		header("HTTP/1.1 200 OK");
+		echo '{"AuthError":"Failed to connect to your library account."}';
+	}
+	else{
+	echo "Error: Failed to connect to your library account.  Please ask us for help with this at https://library.pitt.edu/askus";
+	}
 }
 ?>
 
