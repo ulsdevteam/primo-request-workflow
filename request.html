@@ -54,7 +54,7 @@ app.controller('ezBorrowAPIController',['$window','$location','$scope','$http', 
 	var recall = encodeURI($location.search().recall);
 	//display wait message
 	$scope.ezsearch = true;
-    $scope.message = 'Searching EZ-Borrow partner libraries...';
+    $scope.message = 'Searching EZ-Borrow partner libraries. Takes approximately 30 seconds...';
 	
 	//Search for the book in EZ Borrow
 	//if the query string param variables are undefined they'll break it
@@ -106,7 +106,7 @@ $scope.submit = function(){
 			$scope.conf=response.Problem.Message;
 		}
 		else{
-			$scope.conf=response.Message;
+			$scope.conf='Your request number is: ' + response.RequestNumber;
 		}
 	});
 }
