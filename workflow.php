@@ -248,62 +248,67 @@ if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code 
 			break;
 		}
 	}
-if(isset($type) && $type=='book'){
-	//this one special group isn't eligible to use EZBorrow
-	//ILLIAD
-	if ($user_group=='UPPROGRAM'){
+	//if the user is requesting a physical copy of the material, check EZ Borrow
+	if(isset($type) && $type=='book'){
+		//this one special group isn't eligible to use EZBorrow
+		//ILLIAD
+		if ($user_group=='UPPROGRAM'){
+			header('Location: '.Illiad::buildUrl($type, $campus, $userParams));
+		}
+		else if ($campus=='HSLS'){
+			header('Location: '.Illiad::buildUrl($type, $campus, $userParams));
+		}
+		else{
+			//EZ Borrow?
+			$ezb = new EZBorrow();
+			$result = $ezb->ezSearch($userBarcode,$oclc);
+			$decoded = json_decode($result);
+			//Yes
+			if ($decoded->{'Available'}){
+				header("HTTP/1.1 200 OK");
+				echo $result;
+			}
+			//No
+			else{
+				//ILLIAD
+				$illiadLink = Illiad::bookRequest($type,$campus,$userParams);
+				$decoded->{'illiadLink'}=$illiadLink;
+				echo json_encode($decoded);
+			}
+		}
+	}
+	//REQUEST IT
+	if (isset($pickup) && $pickup!==''){
+		$pickup = urldecode($pickup);
+		if (isset($notes)){
+			$notes=urldecode($notes);
+		}
+		$ezb = new EZBorrow();
+		$result = $ezb->ezRequest($userBarcode,$pickup,$oclc,$notes);
+		if (json_decode($result)->RequestNumber && $notes){
+	    	if(stripos($notes,'contact')>0){
+		   		$myfile = fopen("../../stats/nocontactlog.txt", "w");
+		   		$date = date('Y.m.d');
+	       		fwrite($myfile, $date . PHP_EOL);
+		   		fclose($myfile);
+	    	}
+		}
+		header("HTTP/1.1 200 OK");
+		echo $result;
+	}
+	// Chapter and Article requests go straight to ILLIAD
+	if (isset($type) && ($type=='chapter'||$type=='article')){
 		header('Location: '.Illiad::buildUrl($type, $campus, $userParams));
 	}
-	else{
-		//EZ Borrow?
-		$ezb = new EZBorrow();
-		$result = $ezb->ezSearch($userBarcode,$oclc);
-		$decoded = json_decode($result);
-		//Yes
-		if ($decoded->{'Available'}){
-			header("HTTP/1.1 200 OK");
-			echo $result;
-		}
-		//No
-		else{
-			//ILLIAD
-			$illiadLink = Illiad::bookRequest($type,$campus,$userParams);
-			$decoded->{'illiadLink'}=$illiadLink;
-			echo json_encode($decoded);
-		}
-	}
 }
-//REQUEST IT
-if (isset($pickup) && $pickup!==''){
-	$pickup = urldecode($pickup);
-	if (isset($notes)){
-		$notes=urldecode($notes);
-	}
-	$ezb = new EZBorrow();
-	$result = $ezb->ezRequest($userBarcode,$pickup,$oclc,$notes);
-	if (json_decode($result)->RequestNumber && $notes){
-	    if(stripos($notes,'contact')>0){
-		   $myfile = fopen("../../stats/nocontactlog.txt", "w");
-		   $date = date('l jS \of F Y h:i:s A');
-	       fwrite($myfile, $date . PHP_EOL);
-		   fclose($myfile);
-	    }
-	}
-	header("HTTP/1.1 200 OK");
-	echo $result;
-}
-// Chapter and Article requests go straight to ILLIAD
-if (isset($type) && ($type=='chapter'||$type=='article')){
-header('Location: '.Illiad::buildUrl($type, $campus, $userParams));
-}
-}
+//Invalid user
 else{
 	if(isset($ajax)&&$ajax==='true'){
 		header("HTTP/1.1 200 OK");
 		echo '{"AuthError":"Failed to connect to your library account."}';
 	}
 	else{
-	echo "Error: Failed to connect to your library account.  Please ask us for help with this at https://library.pitt.edu/askus";
+		echo "Error: Failed to connect to your library account.  Please ask us for help with this at https://library.pitt.edu/askus";
 	}
 }
 ?>
