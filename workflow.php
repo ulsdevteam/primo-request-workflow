@@ -304,12 +304,16 @@ if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code 
 }
 //Invalid user
 else{
-	if(isset($ajax)&&$ajax==='true'){
+	//if this is an ajax request from the request workflow page, send back json
+	$http_accept =	apache_request_headers()['Accept'];
+	if (stripos($http_accept,'json')>0){	
 		header("HTTP/1.1 200 OK");
-		echo '{"AuthError":"Failed to connect to your library account. Please <a href=\"https://library.pitt.edu/askus\"></a> for assistance."}';
+		echo '{"AuthError":"Failed to connect to your library account"}';
 	}
+	//otherwise the request must have come directly from Primo (ie. an article or chapter request)
 	else{
-		echo "Error: Failed to connect to your library account.  Please <a href=\"https://library.pitt.edu/askus\"></a> for assistance.";
+		header("HTTP/1.1 200 OK");
+		echo 'Error: Failed to connect to your library account.  Please <a href="https://library.pitt.edu/askus">Ask Us</a> for assistance.';
 	}
 }
 ?>
