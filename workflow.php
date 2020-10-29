@@ -169,21 +169,6 @@ class EZBorrow {
 class Illiad {
 
 	/* ======== ILLIAD ======== */
-	public static function bookRequest($type,$campus,$oUrl){
-		switch($campus){
-			case "UPG":
-			case "UPB":
-			case "UPT":
-			case "UPJ":
-			case "PIT":
-				$illiadLink = self::buildUrl($type, $campus, $oUrl);
-				return $illiadLink;
-				break;
-			case "HSLS":
-				header("Location: ".self::buildUrl($type, $campus, $oUrl));
-				break;
-		} 
-	}
 
 	public static function buildUrl($type, $campus, $params) {
 		$url = '';
@@ -253,7 +238,7 @@ if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code 
 		//this one special group isn't eligible to use EZBorrow
 		//ILLIAD
 		if ($user_group=='UPPROGRAM'){
-			$illiadLink = Illiad::bookRequest($type,$campus,$userParams);
+			$illiadLink = Illiad::buildUrl($type,$campus,$userParams);
 			$upprogram_response = new stdClass();
 			$upprogram_response->Ineligible = 'Ineligible for EZB';
 			$upprogram_response->illiadLink = $illiadLink;
@@ -272,7 +257,7 @@ if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code 
 			//No
 			else{
 				//ILLIAD
-				$illiadLink = Illiad::bookRequest($type,$campus,$userParams);
+				$illiadLink = Illiad::buildUrl($type,$campus,$userParams);
 				$decoded->{'illiadLink'}=$illiadLink;
 				echo json_encode($decoded);
 			}
