@@ -16,7 +16,7 @@
 	  	<div id="main-content">
 	  		<h1>Request This Item</h1>
 	  		<p ng-if="ezsearch">{{message}}</p>
-	  		<p ng-if="autherror">Error: Failed to connect to your library account. Please <a href="">Ask Us</a> for assistance.</p>
+	  		<p ng-if="autherror">Error: Failed to connect to your library account. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
 	  		<a href="{{illiadLink}}" ng-if="unavailable">Order from Interlibrary Loan</a>
 	  		<br>
 	  		<p ng-if="recall">You may also 
@@ -78,6 +78,7 @@ app.controller('ezBorrowAPIController',['$window','$location','$scope','$http', 
 			$scope.message = response.Problem.Message;
 	  	}
 		else if(response.AuthError){
+			$scope.ezsearch=false;
 			$scope.autherror=true;
 		}
 		else if(response.Ineligible){
