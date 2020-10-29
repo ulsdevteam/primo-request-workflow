@@ -5,7 +5,6 @@
 #
 
 $openurlParams = array(
-'ajax',
 'title',
 'author',
 'publisher',

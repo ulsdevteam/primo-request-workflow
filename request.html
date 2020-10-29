@@ -17,7 +17,8 @@
 	  		<h1>Request This Item</h1>
 	  		<p ng-if="ezsearch">{{message}}</p>
 	  		<p ng-if="autherror">Error: Failed to connect to your library account. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
-	  		<a href="{{illiadLink}}" ng-if="unavailable">Order from Interlibrary Loan</a>
+		  	<p ng-if="ajaxerror">Error: Failed to complete your request. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>	
+			<a href="{{illiadLink}}" ng-if="unavailable">Order from Interlibrary Loan</a>
 	  		<br>
 	  		<p ng-if="recall">You may also 
 				<a href="{{pittcatLink}}">Request a Recall</a>: Recalling an item means that we will shorten the loan period for the person who currently has this item checked out. This service may take up to four weeks</a>
@@ -110,8 +111,9 @@ app.controller('ezBorrowAPIController',['$window','$location','$scope','$http', 
 			}
 		}
 	}).catch(function() {
-	  console.log('ajax failure');// handle errors
-	  });;
+		$scope.ezsearch=false;
+		$scope.ajaxerror=true;
+	  });
 //once the user submits a pickup location, we send the request to Relais and wait for confirmation that the book is ordered
 $scope.submit = function(){
 	if(this.pickup !== ''){
@@ -119,7 +121,7 @@ $scope.submit = function(){
 	$scope.pickform = false;
 	$scope.showConf = true;
 	$scope.conf = 'Submitting your request. This takes about 30 seconds.  You will see a confirmation message when it completes...';
-	$http.get('workflow.php?pickup='+this.pickup+'&notes='+this.notes+'&oclc='+oclc+'&ajax=true')
+	$http.get('workflow.php?pickup='+this.pickup+'&notes='+this.notes+'&oclc='+oclc)
 	.then(function(response){
 		var response = angular.fromJson(response.data);
 		if (response.Problem){
@@ -129,6 +131,9 @@ $scope.submit = function(){
 			$scope.conf='Your request was submitted successfully and has been sent to one of our partner libraries. E-mail messages will be automatically sent to update you on its progress. We will also e-mail you when your request is available for pick up. ';
 			console.log('Relais Request Number:' + response.RequestNumber);
 		}
+	}).catch(function() {
+	$scope.showConf=false;
+	$scope.ajaxerror=true;
 	});
 }
 
