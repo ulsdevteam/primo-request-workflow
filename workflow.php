@@ -66,6 +66,7 @@ Class Alma {
 	*/
 	public function getUserId(){
 		if (getenv('HTTP_CN')) {
+			return false;
 			return getenv('HTTP_CN');
 		}
 		else {
@@ -290,7 +291,7 @@ if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code 
 else{
 	//if this is an ajax request from the request workflow page, send back json
 	$http_accept =	apache_request_headers()['Accept'];
-	if (stripos($http_accept,'json')>0){	
+	if (strpos($http_accept,'json')>0){	
 		header("HTTP/1.1 200 OK");
 		echo '{"AuthError":"Failed to connect to your library account"}';
 	}
