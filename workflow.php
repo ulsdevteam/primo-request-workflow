@@ -253,10 +253,11 @@ if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code 
 		//this one special group isn't eligible to use EZBorrow
 		//ILLIAD
 		if ($user_group=='UPPROGRAM'){
-			header('Location: '.Illiad::buildUrl($type, $campus, $userParams));
-		}
-		else if ($campus=='HSLS'){
-			header('Location: '.Illiad::buildUrl($type, $campus, $userParams));
+			$illiadLink = Illiad::bookRequest($type,$campus,$userParams);
+			$upprogram_response = new stdClass();
+			$upprogram_response->Ineligible = 'Ineligible for EZB';
+			$upprogram_response->illiadLink = $illiadLink;
+			echo json_encode($upprogram_response);
 		}
 		else{
 			//EZ Borrow?
@@ -288,7 +289,7 @@ if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code 
 		if (json_decode($result)->RequestNumber && $notes){
 	    	if(stripos($notes,'contact')>0){
 		   		$myfile = fopen("../../stats/nocontactlog.txt", "w");
-		   		$date = date('Y.m.d');
+		   		$date = date('Y.m.d').' '. json_decode($result)->RequestNumber;
 	       		fwrite($myfile, $date . PHP_EOL);
 		   		fclose($myfile);
 	    	}
@@ -305,10 +306,10 @@ if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code 
 else{
 	if(isset($ajax)&&$ajax==='true'){
 		header("HTTP/1.1 200 OK");
-		echo '{"AuthError":"Failed to connect to your library account."}';
+		echo '{"AuthError":"Failed to connect to your library account. Please <a href=\"https://library.pitt.edu/askus\"></a> for assistance."}';
 	}
 	else{
-		echo "Error: Failed to connect to your library account.  Please ask us for help with this at https://library.pitt.edu/askus";
+		echo "Error: Failed to connect to your library account.  Please <a href=\"https://library.pitt.edu/askus\"></a> for assistance.";
 	}
 }
 ?>
