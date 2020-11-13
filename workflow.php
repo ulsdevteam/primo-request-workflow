@@ -66,7 +66,6 @@ Class Alma {
 	*/
 	public function getUserId(){
 		if (getenv('HTTP_CN')) {
-			return false;
 			return getenv('HTTP_CN');
 		}
 		else {
@@ -136,9 +135,10 @@ class EZBorrow {
 	/* ======== EZ SEARCH ======== */
 	public function ezSearch($userBarcode,$oclc){
 		if ($aid = $this->ezAuth($userBarcode)){
+			/*
 			$sampleresponse = '{"Available":true,"RequestLink":{"RequestMessage":"At this time, all EZBorrow services are suspended at your institution. Please contact staff at your institution\'s library with any questions."},"OrigNumberOfRecords":1,"PickupLocation":[{"PickupLocationCode":"HILL","PickupLocationDescription":"Hillman"},{"PickupLocationCode":"LCSU","PickupLocationDescription":"LCSU"}]}';
 			return $sampleresponse;
-			
+			*/
 			//for real you'll have to actually make and handle the search request
 			$data = json_encode(array('PartnershipId'=>'EZB','ExactSearch'=>array(['Type'=>'OCLC','Value'=>$oclc])));
 			$response = $this->api->post("dws/item/available?aid=$aid", utf8_encode($data));
@@ -158,7 +158,7 @@ class EZBorrow {
 			$data = json_encode($data);
 			//return early for testing:
 	 		//return $data;
-			return '{"RequestNumber":"PIT-11437678"}';
+			//return '{"RequestNumber":"PIT-11437678"}';
 			$response = $this->api->post("dws/item/add?aid=$aid", utf8_encode($data));
 			return $response->response;
 		}
@@ -271,14 +271,6 @@ if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code 
 		}
 		$ezb = new EZBorrow();
 		$result = $ezb->ezRequest($userBarcode,$pickup,$oclc,$notes);
-		if (json_decode($result)->RequestNumber && $notes){
-	    	if(stripos($notes,'contact')>0){
-		   		$myfile = fopen("../../stats/nocontactlog.txt", "w");
-		   		$date = date('Y.m.d').' '. json_decode($result)->RequestNumber;
-	       		fwrite($myfile, $date . PHP_EOL);
-		   		fclose($myfile);
-	    	}
-		}
 		header("HTTP/1.1 200 OK");
 		echo $result;
 	}
