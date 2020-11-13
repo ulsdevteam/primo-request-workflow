@@ -32,8 +32,6 @@
 				<br>
 				<label for="notes">Please indicate if you need a specific volume from a multivolume set in the notes field below. 
 					<p> 
-					If you would like to retrieve your item with No Contact Pickup, please write “no contact pickup” in the notes field below and someone will contact you with instructions when your item arrives. 
-					<br>
 					Please note that due to COVID-19, this service may take longer than usual.
 					</p>
 				</label>
@@ -68,22 +66,19 @@ app.controller('ezBorrowAPIController',['$window','$location','$scope','$http', 
 	var recall = encodeURI($location.search().recall);
 	//display wait message
 	$scope.ezsearch = true;
-    $scope.message = 'Searching EZ-Borrow partner libraries. Takes approximately 30 seconds...';
+    $scope.message = 'Searching E-ZBorrow partner libraries. Takes approximately 30 seconds...';
 	
 	//Search for the book in EZ Borrow
 	//if the query string param variables are undefined they'll break it
 	$http.get('workflow.php?title='+title+'&author='+author+'&publisher='+publisher+'&location='+publocation+'&year='+year+'&requesttype='+requestType+'&oclc='+oclc+'&issn='+issn+'&volume='+volume+'&issue='+issue+'&month='+month+'&atitle='+atitle+'&pages='+pages+'&ajax=true')
 	.then(function(response) {
 		var response = angular.fromJson(response.data);
-		if (response.Problem){
-			$scope.message = response.Problem.Message;
-	  	}
-		else if(response.AuthError){
+		if(response.AuthError){
 			$scope.ezsearch=false;
 			$scope.autherror=true;
 		}
 		else if(response.Ineligible){
-			$scope.message = 'Your user group is ineligible to place EZ Borrow requests. Would you like to place an Interlibrary Loan Request? This service takes 7-14 days.'
+			$scope.message = 'Your user group is ineligible to place E-ZBorrow requests. Would you like to place an Interlibrary Loan Request? This service takes 7-14 days.'
 			$scope.unavailable = true;
 			$scope.illiadLink = response.illiadLink;
 		}
@@ -92,7 +87,7 @@ app.controller('ezBorrowAPIController',['$window','$location','$scope','$http', 
 			if (response.Available){
 				$scope.pickform = true;//response.Available;
 				$scope.ezsearch = true;
-				$scope.message=response.RequestLink.RequestMessage;
+				$scope.message='This item is available from E-ZBorrow.  You may place a request using the form below.';
     			//$scope.message =  response.Available;
     			$scope.locations = response.PickupLocation;
 				$scope.pickup = '';
@@ -103,11 +98,13 @@ app.controller('ezBorrowAPIController',['$window','$location','$scope','$http', 
 				$scope.message= 'This item is not available through E-ZBorrow. Would you like to place an interlibrary loan request from another library? Please note that due to COVID-19, this service may take up to four weeks.';
 				$scope.unavailable = true;
 				$scope.illiadLink = response.illiadLink;
-				//https://pitt-psb.primo.exlibrisgroup.com/discovery/fulldisplay?docid=alma9986061173406236&context=L&vid=01PITT_INST:01PITT_INST
+				//recall can be an option with the addition of a module in Primo
+				/*
 				if (recall==='true'){
 					$scope.recall = true;
 					$scope.pittcatLink = 'https://pitt-psb.primo.exlibrisgroup.com/discovery/fulldisplay?context=L&vid=01PITT_INST:ezborrow&docid='+referrer+'&recall=true';
 				}
+				*/
 			}
 		}
 	}).catch(function() {
@@ -125,7 +122,7 @@ $scope.submit = function(){
 	.then(function(response){
 		var response = angular.fromJson(response.data);
 		if (response.Problem){
-			$scope.conf=response.Problem.Message;
+			$scope.conf=response.Problem.ErrorMessage;
 		}
 		else{
 			$scope.conf='Your request was submitted successfully and has been sent to one of our partner libraries. E-mail messages will be automatically sent to update you on its progress. We will also e-mail you when your request is available for pick up. ';
