@@ -1,9 +1,8 @@
-<?php
 
+<?php
 #
 # Uses this PHP Rest Client: https://github.com/tcdent/php-restclient
 #
-
 $openurlParams = array(
 'title',
 'author',
@@ -21,7 +20,7 @@ $openurlParams = array(
 'pickup',
 'notes',
 );
-
+//userParams? thes don't pertain to the user. resourceParams instead?
 $userParams = array();
 foreach ($openurlParams as $p) {
 	if (isset($_GET[$p])){
@@ -96,80 +95,44 @@ Class Alma {
 	}
 }
 
-class EZBorrow {
+class Illiad {
 
 	private $api;
-	
+
 	/*
-	*returns Relais EZ Borrow API function
+	*returns ILLiad API function
 	*/
 	public function __construct(){
 		include_once 'vendor/tcdent/php-restclient/restclient.php';
 		include_once '../../configs/config.php';
 
-		$this->api = new RestClient([
-			'base_url' => 'https://e-zborrow.relais-host.com/',
-			'headers'  => ['Accept' => 'application/json',
-						   'Content-Type'=>' application/json',
-						  ],
-		]);
+	$this->api = new RestClient([
+		'base_url' => 'https://pitt.illiad.oclc.org/illiadwebplatform/',
+		'headers' => ['Apikey'=> ILLIAD_API_KEY,
+			      'Accept' => 'application/json; version=1',
+			      'Content-Type' => 'application/json',
+			     ],
+	]);
 	}
 
-	/* ======= EZ AUTH ======== */
-	public function ezAuth($userBarcode){
-		$auth = array('ApiKey' => RELAIS_API_KEY, 'UserGroup' => "patron", 'PartnershipId' => "EZB", 'LibrarySymbol' => "PITT", 'PatronId' => $userBarcode);
-		$send_data = json_encode($auth);
-		$response = $this->api->post("portal-service/user/authentication", utf8_encode($send_data));
-		$content = json_decode($response->response);
-		// print_r($response);
-		if ($response->info->http_code == 200 || $response->info->http_code == 201) {
-			$aid=$content->AuthorizationId;
-			return $aid; 
+	/*
+	* Does Pitt user also have an existing ILLiad account?
+	* @param string $user A Pitt username
+	* @return bool
+	*/
+	public function userExists($user){
+		$illiadUserRequest = $this->api->get("Users/$user@pitt.edu");
+		
+		//ILLiad user exists
+		if($illiadUserRequest->info->http_code == 200) {
+			return true;
 		}
-		else{
-			echo $response->response;
+		//Couldn't find ILLiad user
+		else {
 			return false;
 		}
-	}
-
-	/* ======== EZ SEARCH ======== */
-	public function ezSearch($userBarcode,$oclc){
-		if ($aid = $this->ezAuth($userBarcode)){
-			/*
-			$sampleresponse = '{"Available":true,"RequestLink":{"RequestMessage":"At this time, all EZBorrow services are suspended at your institution. Please contact staff at your institution\'s library with any questions."},"OrigNumberOfRecords":1,"PickupLocation":[{"PickupLocationCode":"HILL","PickupLocationDescription":"Hillman"},{"PickupLocationCode":"LCSU","PickupLocationDescription":"LCSU"}]}';
-			return $sampleresponse;
-			*/
-			//for real you'll have to actually make and handle the search request
-			$data = json_encode(array('PartnershipId'=>'EZB','ExactSearch'=>array(['Type'=>'OCLC','Value'=>$oclc])));
-			$response = $this->api->post("dws/item/available?aid=$aid", utf8_encode($data));
-			return $response->response;
-		}
-	}
-	
-	/* ======== EZ REQUEST ======== */
-	public function ezRequest($userBarcode,$pickup,$oclc,$notes){		
-		if ($aid = $this->ezAuth($userBarcode)){
-			//return '{"Problem":{"Message":"You are blocked!"}}';
-			//for real you will use code below
-			$data = array('PartnershipId'=>'EZB','PickupLocation'=>$pickup,'ExactSearch'=>array(['Type'=>'OCLC','Value'=>$oclc]));
-			if ($notes){
-				$data['Notes']=$notes;
-			}
-			$data = json_encode($data);
-			//return early for testing:
-	 		//return $data;
-			//return '{"RequestNumber":"PIT-11437678"}';
-			$response = $this->api->post("dws/item/add?aid=$aid", utf8_encode($data));
-			return $response->response;
-		}
-	}
-
-}
-
-class Illiad {
-
-	/* ======== ILLIAD ======== */
-
+	}	
+	//does this method need to be static?
 	public static function buildUrl($type, $campus, $params) {
 		$url = '';
 		// Service address
@@ -219,79 +182,61 @@ class Illiad {
 	}
 }
 
-
-//Get the logged-in user's campus code to see which library system serves them
+//Get the patron's Pitt username
 $user = new Alma();
 $userId = $user->getUserId();
-if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code && $user->getUserRecord($userId)->user_group && $user->getUserRecord($userId)->user_identifier){
+
+//Does user have an ILLiad account?
+$illiad = new Illiad;
+$illiadUserExists = $illiad->userExists($userId);
+
+//if their account has all the info we need
+if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code) {
+	//Determine which campus library system (and corresponding ILLiad site) serves them
 	$campus = $user->getUserRecord($userId)->campus_code->value;
-	$user_group = $user->getUserRecord($userId)->user_group->value;
-	//a user record can have more than one type of identifier
-	foreach($user->getUserRecord($userId)->user_identifier as $identifier){
-		if ($identifier->id_type->value=='BARCODE'){
-			$userBarcode = $identifier->value;
-			break;
-		}
-	}
-	//if the user is requesting a physical copy of the material, check EZ Borrow
-	if(isset($type) && $type=='book'){
-		//this one special group isn't eligible to use EZBorrow
-		//ILLIAD
-		if ($user_group=='UPPROGRAM'){
-			$illiadLink = Illiad::buildUrl($type,$campus,$userParams);
-			$upprogram_response = new stdClass();
-			$upprogram_response->Ineligible = 'Ineligible for EZB';
-			$upprogram_response->illiadLink = $illiadLink;
-			echo json_encode($upprogram_response);
-		}
-		else{
-			//EZ Borrow?
-			$ezb = new EZBorrow();
-			$result = $ezb->ezSearch($userBarcode,$oclc);
-			$decoded = json_decode($result);
-			//Yes
-			if ($decoded->{'Available'}){
-				header("HTTP/1.1 200 OK");
-				echo $result;
-			}
-			//No
-			else{
-				//ILLIAD
-				$illiadLink = Illiad::buildUrl($type,$campus,$userParams);
-				$decoded->{'illiadLink'}=$illiadLink;
-				echo json_encode($decoded);
-			}
-		}
-	}
-	//REQUEST IT
-	if (isset($pickup) && $pickup!==''){
-		$pickup = urldecode($pickup);
-		if (isset($notes)){
-			$notes=urldecode($notes);
-		}
-		$ezb = new EZBorrow();
-		$result = $ezb->ezRequest($userBarcode,$pickup,$oclc,$notes);
-		header("HTTP/1.1 200 OK");
-		echo $result;
-	}
-	// Chapter and Article requests go straight to ILLIAD
-	if (isset($type) && ($type=='chapter'||$type=='article')){
+	//if they already have an ILLiad account
+	if ($illiadUserExists) {
+		//send them immediately to the ILLiad request form
+		//if not, the html instructions below will display by default
 		header('Location: '.Illiad::buildUrl($type, $campus, $userParams));
 	}
 }
-//Invalid user
-else{
-	//if this is an ajax request from the request workflow page, send back json
-	$http_accept =	apache_request_headers()['Accept'];
-	if (strpos($http_accept,'json')>0){	
-		header("HTTP/1.1 200 OK");
-		echo '{"AuthError":"Failed to connect to your library account"}';
-	}
-	//otherwise the request must have come directly from Primo (ie. an article or chapter request)
-	else{
-		header("HTTP/1.1 200 OK");
-		echo 'Error: Failed to connect to your library account.  Please <a href="https://library.pitt.edu/askus">Ask Us</a> for assistance.';
-	}
+//Couldn't get Alma user record.
+else {
+		$requestStatus = 'almaError';
 }
 ?>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Request this item</title>
+		<link href="request.css" rel="stylesheet" type="text/css">
+		<base href="/">
+	</head>
+    <body ng-app="ezBorrowAPI" ng-controller="ezBorrowAPIController">
+        <div id="pitt-header">
+        	<a href="https://pittcat.pitt.edu">
+        		<img src="img/logos.png" alt="University of Pittsburgh Pittcat">
+        	</a>
+      	</div>
+     	<div id="main-content">
+	 		<h1>Request This Item</h1>
+	 		<?php 
+				if ($requestStatus == 'almaError') {
+					echo <<<ALMA_API_ERROR
+					<p>Error: Failed to connect to your library account. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
+ALMA_API_ERROR;
+				}
+				else{
+			echo <<<NOILLIADUSER
+			<p>Hi, there!  Prior to completing your request, and due to changes with our materials sharing provider, we ask that you <a href="$illiadLink">complete a one-time registration with our interlibrary-loan service</a> if you have not already done so.</p>
+			<p>After registration, just complete the request in the form provided and we will have your materials on their way to you as quickly as possible!</p>
+			<p>If you need any additional assistance, please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a></p>
+NOILLIADUSER;
+			}
+			?>
+     	</div>
+	 </body>
+</html>
+
 
