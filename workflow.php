@@ -20,29 +20,17 @@ $openurlParams = array(
 'pickup',
 'notes',
 );
-//userParams? thes don't pertain to the user. resourceParams instead?
-$userParams = array();
+
+$userSubmittedParams = array();
 foreach ($openurlParams as $p) {
 	if (isset($_GET[$p])){
-	// Legacy: set the variable by name
-	if ($p === 'requesttype') {
-		$type = urlencode($_GET[$p]);
-	} else {
-		//$$p sets a variable named with the value of $p
-		//we also give it the value of $p here
-		//eg. $pages = urlencode(_GET['pages']);
-		$$p = urlencode($_GET[$p]);
-	}
-	// Preferred: create an array for passing around
-	// Instead of calling for $pages, we say $userParams['pages'];
-	$userParams[$p] = urlencode($_GET[$p]);
+		$userSubmittedParams[$p] = urlencode($_GET[$p]);
 	}
 }
 
 Class Alma {
 
 	private $api;
-
 	private $userCache = array();
 	/*
 	*returns ExLibris API function
@@ -106,13 +94,13 @@ class Illiad {
 		include_once 'vendor/tcdent/php-restclient/restclient.php';
 		include_once '../../configs/config.php';
 
-	$this->api = new RestClient([
-		'base_url' => 'https://pitt.illiad.oclc.org/illiadwebplatform/',
-		'headers' => ['Apikey'=> ILLIAD_API_KEY,
-			      'Accept' => 'application/json; version=1',
-			      'Content-Type' => 'application/json',
-			     ],
-	]);
+		$this->api = new RestClient([
+			'base_url' => 'https://pitt.illiad.oclc.org/illiadwebplatform/',
+			'headers' => ['Apikey'=> ILLIAD_API_KEY,
+					'Accept' => 'application/json; version=1',
+					'Content-Type' => 'application/json',
+					],
+		]);
 	}
 
 	/*
@@ -132,8 +120,15 @@ class Illiad {
 			return false;
 		}
 	}	
-	//does this method need to be static?
-	public static function buildUrl($type, $campus, $params) {
+
+	/*
+	* Construct link to appropriate ILLiad request form
+	* @param string book, chapter, or article request
+	* @param string which Alma "campus" does the user belong to? 
+	* @param array containing sanitized entries from the query string to prepopulate ILLiad fields
+	* @return string the complete ILLiad request form URL
+	*/
+	public function buildUrl($type, $campus, $params) {
 		$url = '';
 		// Service address
 		switch ($campus) {
@@ -189,6 +184,7 @@ $userId = $user->getUserId();
 //Does user have an ILLiad account?
 $illiad = new Illiad;
 $illiadUserExists = $illiad->userExists($userId);
+$illiadUrl = $illiad->buildUrl($type, $campus, $userSubmittedParams);
 
 //if their account has all the info we need
 if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code) {
@@ -198,7 +194,7 @@ if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code)
 	if ($illiadUserExists) {
 		//send them immediately to the ILLiad request form
 		//if not, the html instructions below will display by default
-		header('Location: '.Illiad::buildUrl($type, $campus, $userParams));
+		header("Location: $illiadUrl");
 	}
 }
 //Couldn't get Alma user record.
@@ -229,7 +225,7 @@ ALMA_API_ERROR;
 				}
 				else{
 			echo <<<NOILLIADUSER
-			<p>Hi, there!  Prior to completing your request, and due to changes with our materials sharing provider, we ask that you <a href="$illiadLink">complete a one-time registration with our interlibrary-loan service</a> if you have not already done so.</p>
+			<p>Hi, there!  Prior to completing your request, and due to changes with our materials sharing provider, we ask that you <a href="$illiadUrl">complete a one-time registration with our interlibrary-loan service</a> if you have not already done so.</p>
 			<p>After registration, just complete the request in the form provided and we will have your materials on their way to you as quickly as possible!</p>
 			<p>If you need any additional assistance, please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a></p>
 NOILLIADUSER;
