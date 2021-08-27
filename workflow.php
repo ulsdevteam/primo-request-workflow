@@ -21,6 +21,7 @@ $openurlParams = array(
 'notes',
 );
 
+//url encode user-submitted input from the query string
 $userSubmittedParams = array();
 foreach ($openurlParams as $p) {
 	if (isset($_GET[$p])){
@@ -61,7 +62,7 @@ Class Alma {
 	}
 
 	/*
-	* @param $userId is a unique id that references a user in our Alma database
+	* @param $userId A unique id that references a user in our Alma database
 	* returns php object describing the requested user's info in Alma
 	*/
 	public function getUserRecord($userId){
@@ -123,12 +124,11 @@ class Illiad {
 
 	/*
 	* Construct link to appropriate ILLiad request form
-	* @param string book, chapter, or article request
-	* @param string which Alma "campus" does the user belong to? 
-	* @param array containing sanitized entries from the query string to prepopulate ILLiad fields
-	* @return string the complete ILLiad request form URL
+	* @param string $campus Which Alma "campus" does the user belong to? 
+	* @param array $params Contains url-encoded entries from the query string to determine request type and prepopulate ILLiad fields
+	* @return string The complete ILLiad request form URL
 	*/
-	public function buildUrl($type, $campus, $params) {
+	public function buildUrl($campus, $params) {
 		$url = '';
 		// Service address
 		switch ($campus) {
@@ -144,7 +144,7 @@ class Illiad {
 				break;
 		}
 		// Action and Form
-		switch ($type) {
+		switch ($params['requesttype']) {
 			case 'book':
 				$url .= '?Action=10&Form='.($campus === 'HSLS' ? '30' : '21');
 				break;
@@ -155,9 +155,10 @@ class Illiad {
 				$url .= '?Action=10&Form=22';
 				break;
 		}
+
 		// Parameters
 		$map = array();
-		switch ($type) {
+		switch ($params['requesttype']) {
 			case 'book':
 				$map = array('LoanTitle' => 'title', 'LoanAuthor' => 'author', 'LoanPublisher' => 'publisher', 'LoanPlace' => 'location', 'LoanDate' => 'year', 'ESPNumber' => 'oclc');
 				break;
@@ -184,16 +185,21 @@ $userId = $user->getUserId();
 //Does user have an ILLiad account?
 $illiad = new Illiad;
 $illiadUserExists = $illiad->userExists($userId);
-$illiadUrl = $illiad->buildUrl($type, $campus, $userSubmittedParams);
 
 //if their account has all the info we need
 if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code) {
+
 	//Determine which campus library system (and corresponding ILLiad site) serves them
 	$campus = $user->getUserRecord($userId)->campus_code->value;
+
+	//construct a link to the appropriate ILLiad form
+	$illiadUrl = $illiad->buildUrl($campus, $userSubmittedParams);
+
 	//if they already have an ILLiad account
 	if ($illiadUserExists) {
 		//send them immediately to the ILLiad request form
 		//if not, the html instructions below will display by default
+		$requestStatus = "Success";
 		header("Location: $illiadUrl");
 	}
 }
