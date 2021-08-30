@@ -95,8 +95,8 @@ class Illiad {
 		include_once 'vendor/tcdent/php-restclient/restclient.php';
 		include_once '../../configs/config.php';
 		$this->api = new RestClient([
-			'base_url' => $this->baseUrl($campus,'api').'/illiadwebplatform/',
-			'headers' => ['Apikey'=> ILLIAD_API_KEY,
+			'base_url' => $this->apiConfig($campus)['base_url'].'/illiadwebplatform/',
+			'headers' => ['Apikey'=> $this->apiConfig($campus)['api_key'],
 					'Accept' => 'application/json; version=1',
 					'Content-Type' => 'application/json',
 			],
@@ -104,27 +104,35 @@ class Illiad {
 	}
 
 	/*
-	* ILLiad base url by Alma campus
-	* @param string $campus the user's Alma "campus" code
-	* @return string The ILLiad base url for the corresponding library system
+	* Pitt has two library systems that serve users from different Alma "campuses"
+	* @param string $campus the user's Alma campus
+	* $return string The user's library system for ILLiad purposes
 	*/
-	private function baseUrl($campus, $service) {
+	private function librarySystem($campus) {
 		switch ($campus) {
 			case "UPG":
 			case "UPB":
 			case "UPT":
 			case "UPJ":
 			case "PIT":
-				if ($service === 'api'){
-					return 'https://pitt.illiad.oclc.org/';
-					}
-				elseif ($service === 'form'){
-					return 'https://pitt-illiad-oclc-org.pitt.idm.oclc.org/';
-					}
+				return 'ULS';
 				break;
 			case "HSLS":
-				return 'https://illiad.hsls.pitt.edu/';
+				return 'HSLS';
 				break;
+		}
+	}	
+	/*
+	* ILLiad api base url and key for user's library system
+	* @param string $campus the user's Alma "campus" code
+	* @return array The ILLiad base url and api key for the corresponding library system
+	*/
+	private function apiConfig($campus) {
+		if ($this->librarySystem($campus) == "ULS"){
+			return array('base_url'=>'https://pitt.illiad.oclc.org/','api_key'=>ILLIAD_API_KEY_ULS);
+		}
+		elseif ($this->librarySystem($campus) == "HSLS") {
+			return array('base_url'=>'https://illiad.hsls.pitt.edu/','api_key'=>ILLIAD_API_KEY_HSLS);
 		}
 	}
 
@@ -154,7 +162,12 @@ class Illiad {
 	*/
 	public function buildUrl($campus, $params) {
 		// Service address
-		$url  = $this->baseUrl($campus, 'form').'illiad/illiad.dll';
+		if ($this->librarySystem($campus)=="ULS") {
+			$url = 'https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll';
+		}
+		elseif ($this->librarySystem($campus)=="HSLS") {
+			$url = 'https://illiad.hsls.pitt.edu/illiad/illiad.dll';
+		}
 		// Action and Form
 		switch ($params['requesttype']) {
 			case 'book':
