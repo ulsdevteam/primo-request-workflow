@@ -91,17 +91,41 @@ class Illiad {
 	/*
 	*returns ILLiad API function
 	*/
-	public function __construct(){
+	public function __construct($campus){
 		include_once 'vendor/tcdent/php-restclient/restclient.php';
 		include_once '../../configs/config.php';
-
 		$this->api = new RestClient([
-			'base_url' => 'https://pitt.illiad.oclc.org/illiadwebplatform/',
+			'base_url' => $this->baseUrl($campus,'api').'/illiadwebplatform/',
 			'headers' => ['Apikey'=> ILLIAD_API_KEY,
 					'Accept' => 'application/json; version=1',
 					'Content-Type' => 'application/json',
-					],
+			],
 		]);
+	}
+
+	/*
+	* ILLiad base url by Alma campus
+	* @param string $campus the user's Alma "campus" code
+	* @return string The ILLiad base url for the corresponding library system
+	*/
+	private function baseUrl($campus, $service) {
+		switch ($campus) {
+			case "UPG":
+			case "UPB":
+			case "UPT":
+			case "UPJ":
+			case "PIT":
+				if ($service === 'api'){
+					return 'https://pitt.illiad.oclc.org/';
+					}
+				elseif ($service === 'form'){
+					return 'https://pitt-illiad-oclc-org.pitt.idm.oclc.org/';
+					}
+				break;
+			case "HSLS":
+				return 'https://illiad.hsls.pitt.edu/';
+				break;
+		}
 	}
 
 	/*
@@ -129,20 +153,8 @@ class Illiad {
 	* @return string The complete ILLiad request form URL
 	*/
 	public function buildUrl($campus, $params) {
-		$url = '';
 		// Service address
-		switch ($campus) {
-			case "UPG":
-			case "UPB":
-			case "UPT":
-			case "UPJ":
-			case "PIT":
-				$url = 'https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll';
-				break;
-			case "HSLS":
-				$url = 'https://illiad.hsls.pitt.edu/illiad/illiad.dll';
-				break;
-		}
+		$url  = $this->baseUrl($campus, 'form').'illiad/illiad.dll';
 		// Action and Form
 		switch ($params['requesttype']) {
 			case 'book':
@@ -182,19 +194,19 @@ class Illiad {
 $user = new Alma();
 $userId = $user->getUserId();
 
-//Does user have an ILLiad account?
-$illiad = new Illiad;
-$illiadUserExists = $illiad->userExists($userId);
-
 //if their account has all the info we need
 if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code) {
 
-	//Determine which campus library system (and corresponding ILLiad site) serves them
+	//Determine which Alma campus the user belongs to
 	$campus = $user->getUserRecord($userId)->campus_code->value;
+	
+	//Does user have an ILLiad account? We'll check based on their campus and corresponding library system
+	$illiad = new Illiad($campus);
+	$illiadUserExists = $illiad->userExists($userId);
 
 	//construct a link to the appropriate ILLiad form
 	$illiadUrl = $illiad->buildUrl($campus, $userSubmittedParams);
-
+	
 	//if they already have an ILLiad account
 	if ($illiadUserExists) {
 		//send them immediately to the ILLiad request form
