@@ -3,6 +3,7 @@
 #
 # Uses this PHP Rest Client: https://github.com/tcdent/php-restclient
 #
+
 $openurlParams = array(
 'title',
 'author',
@@ -94,9 +95,10 @@ class Illiad {
 	public function __construct($campus){
 		include_once 'vendor/tcdent/php-restclient/restclient.php';
 		include_once '../../configs/config.php';
+		$system=$this->librarySystem($campus);
 		$this->api = new RestClient([
-			'base_url' => $this->apiConfig($campus)['base_url'].'/illiadwebplatform/',
-			'headers' => ['Apikey'=> $this->apiConfig($campus)['api_key'],
+			'base_url' => ILLIAD_API_CONFIG[$system]['BASE_URL'] . 'illiadwebplatform/',
+			'headers' => ['Apikey'=>ILLIAD_API_CONFIG[$system]['KEY'],
 					'Accept' => 'application/json; version=1',
 					'Content-Type' => 'application/json',
 			],
@@ -122,19 +124,6 @@ class Illiad {
 				break;
 		}
 	}	
-	/*
-	* ILLiad api base url and key for user's library system
-	* @param string $campus the user's Alma "campus" code
-	* @return array The ILLiad base url and api key for the corresponding library system
-	*/
-	private function apiConfig($campus) {
-		if ($this->librarySystem($campus) == "ULS"){
-			return array('base_url'=>'https://pitt.illiad.oclc.org/','api_key'=>ILLIAD_API_KEY_ULS);
-		}
-		elseif ($this->librarySystem($campus) == "HSLS") {
-			return array('base_url'=>'https://illiad.hsls.pitt.edu/','api_key'=>ILLIAD_API_KEY_HSLS);
-		}
-	}
 
 	/*
 	* Does Pitt user also have an existing ILLiad account?
@@ -208,24 +197,26 @@ $user = new Alma();
 $userId = $user->getUserId();
 
 //if their account has all the info we need
-if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code) {
-
-	//Determine which Alma campus the user belongs to
-	$campus = $user->getUserRecord($userId)->campus_code->value;
-	
-	//Does user have an ILLiad account? We'll check based on their campus and corresponding library system
-	$illiad = new Illiad($campus);
-	$illiadUserExists = $illiad->userExists($userId);
-
-	//construct a link to the appropriate ILLiad form
-	$illiadUrl = $illiad->buildUrl($campus, $userSubmittedParams);
-	
-	//if they already have an ILLiad account
-	if ($illiadUserExists) {
-		//send them immediately to the ILLiad request form
-		//if not, the html instructions below will display by default
-		$requestStatus = "Success";
-		header("Location: $illiadUrl");
+if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code && $user->getUserRecord($userId)->user_group->value) {
+	//this user group isn't permitted to place external requests
+	if ($user->getUserRecord($userId)->user_group->value == 'UPPROGRAM') {
+		$requestStatus='program';
+	}
+	else {
+		//continue on with the existing workflow
+		//Determine which Alma campus the user belongs to
+		$campus = $user->getUserRecord($userId)->campus_code->value;
+		//Does user have an ILLiad account? We'll check based on their campus and corresponding library system
+		$illiad = new Illiad($campus);
+		$illiadUserExists = $illiad->userExists($userId);
+		//construct a link to the appropriate ILLiad form
+		$illiadUrl = $illiad->buildUrl($campus, $userSubmittedParams);
+		//if they already have an ILLiad account
+		if ($illiadUserExists) {
+			//send them immediately to the ILLiad request form
+			//if not, the html instructions below will display by default
+			header("Location: $illiadUrl");
+		}
 	}
 }
 //Couldn't get Alma user record.
@@ -253,6 +244,11 @@ else {
 					echo <<<ALMA_API_ERROR
 					<p>Error: Failed to connect to your library account. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
 ALMA_API_ERROR;
+				}
+				elseif ($requestStatus == 'program'){
+						echo <<<PROGRAM_PARTICIPANT
+						<p>Pitt program  participants cannot order books from other libraries. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
+PROGRAM_PARTICIPANT;
 				}
 				else{
 			echo <<<NOILLIADUSER
