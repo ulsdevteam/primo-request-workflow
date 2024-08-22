@@ -38,7 +38,7 @@ Class Alma {
 	*returns ExLibris API function
 	*/
 	public function __construct(){
-		include_once 'vendor/tcdent/php-restclient/restclient.php';
+		include_once 'php-restclient/restclient.php';
 		include_once '../../configs/config.php';
 		
 		$this->api = new RestClient([
@@ -93,7 +93,7 @@ class Illiad {
 	*returns ILLiad API function
 	*/
 	public function __construct($campus){
-		include_once 'vendor/tcdent/php-restclient/restclient.php';
+		include_once 'php-restclient/restclient.php';
 		include_once '../../configs/config.php';
 		$system=$this->librarySystem($campus);
 		$this->api = new RestClient([
