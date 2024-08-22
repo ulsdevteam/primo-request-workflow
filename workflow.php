@@ -177,8 +177,8 @@ class Illiad {
 				$map = array('LoanTitle' => 'title', 'LoanAuthor' => 'author', 'LoanPublisher' => 'publisher', 'LoanPlace' => 'location', 'LoanDate' => 'year', 'ESPNumber' => 'oclc');
 				break;
 			case 'article':
-				// external article scan requests
-				$map = array('PhotoJournalTitle' => 'title', 'PhotoJournalVolume' => 'volume', 'PhotoJournalIssue' => 'issue', 'PhotoJournalMonth' => 'month', 'PhotoArticleTitle' => 'atitle', 'PhotoJournalInclusivePages' => 'pages');
+				// external article scan request
+				$map = array('PhotoJournalTitle' => 'title', 'PhotoJournalVolume' => 'volume', 'PhotoJournalIssue' => 'issue', 'PhotoJournalYear' => 'year', 'PhotoJournalMonth' => 'month', 'PhotoArticleTitle' => 'atitle', 'PhotoJournalInclusivePages' => 'pages');
 				break;
 			case 'chapter':
 				// external book chapter scan request
@@ -201,6 +201,18 @@ if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code 
 	//this user group isn't permitted to place external requests
 	if ($user->getUserRecord($userId)->user_group->value == 'UPPROGRAM') {
 		$requestStatus='program';
+	}
+	//Barco Law Library users do not participate in Illiad. 
+	elseif ($user->getUserRecord($userId)->campus_code->value==='LAW') {
+		$requestStatus='lawPatron';
+	}
+	//handle alternate Alma user 'Campus' options
+	elseif ($user->getUserRecord($userId)->campus_code->value==='NA') {
+		$requestStatus='unknownCampus';
+	}
+	//if the blank Campus option in Alma is saved for a user, their User object doesn't get a value, just a blank description property 
+	elseif ($user->getUserRecord($userId)->campus_code->desc==='') {
+		$requestStatus='blankCampus';
 	}
 	else {
 		//continue on with the existing workflow
@@ -240,23 +252,39 @@ else {
      	<div id="main-content">
 	 		<h1>Request This Item</h1>
 	 		<?php 
-				if ($requestStatus == 'almaError') {
-					echo <<<ALMA_API_ERROR
-					<p>Error: Failed to connect to your library account. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
+				switch ($requestStatus) {
+					case "almaError":
+						echo <<<ALMA_API_ERROR
+						 <p>Error: Failed to connect to your library account. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
 ALMA_API_ERROR;
-				}
-				elseif ($requestStatus == 'program'){
-						echo <<<PROGRAM_PARTICIPANT
-						<p>Pitt program  participants cannot order books from other libraries. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
+						break;
+					case "program":
+					echo <<<PROGRAM_PARTICIPANT
+					<p>Pitt program  participants cannot order books from other libraries. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
 PROGRAM_PARTICIPANT;
-				}
-				else{
-			echo <<<NOILLIADUSER
-			<p>Hi, there!  Prior to completing your request, and due to changes with our materials sharing provider, we ask that you <a href="$illiadUrl">complete a one-time registration with our interlibrary-loan service</a> if you have not already done so.</p>
-			<p>After registration, just complete the request in the form provided and we will have your materials on their way to you as quickly as possible!</p>
-			<p>If you need any additional assistance, please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a></p>
+						break;
+					case "lawPatron":
+						echo <<<LAW_PATRON
+						<p>Law School users, please see <a href="https://www.library.law.pitt.edu/research/interlibrary-loan-delivery">https://www.library.law.pitt.edu/research/interlibrary-loan-delivery</a> for interlibrary loan inforrmation.</p>
+LAW_PATRON;
+						break;
+					case "unknownCampus":
+						echo <<<UNKNOWN_CAMPUS
+						<p>Your request cannot be submitted because the campus field in your library account is listed as 'Unknown.' Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance and mention this error message.</p>
+UNKNOWN_CAMPUS;
+						break;
+					case "blankCampus":
+						echo <<<BLANK_CAMPUS
+						<p>Your request cannot be submitted because the campus field in your library account is blank.  Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance and mention this error message.</p>
+BLANK_CAMPUS;
+						break;
+					default:
+					echo <<<NOILLIADUSER
+					<p>Hi, there!  Prior to completing your request, and due to changes with our materials sharing provider, we ask that you <a href="$illiadUrl">complete a one-time registration with our interlibrary-loan service</a> if you have not already done so.</p>
+					<p>After registration, just complete the request in the form provided and we will have your materials on their way to you as quickly as possible!</p>
+					<p>If you need any additional assistance, please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a></p>
 NOILLIADUSER;
-			}
+				}
 			?>
      	</div>
 	 </body>
