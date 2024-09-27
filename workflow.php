@@ -4,32 +4,6 @@
 # Uses this PHP Rest Client: https://github.com/tcdent/php-restclient
 #
 
-$openurlParams = array(
-'title',
-'author',
-'publisher',
-'location',
-'year',
-'oclc',
-'issn',
-'requesttype',
-'volume',
-'issue',
-'month',
-'atitle',
-'pages',
-'pickup',
-'notes',
-);
-
-//url encode user-submitted input from the query string
-$userSubmittedParams = array();
-foreach ($openurlParams as $p) {
-	if (isset($_GET[$p])){
-		$userSubmittedParams[$p] = urlencode($_GET[$p]);
-	}
-}
-
 Class Alma {
 
 	private $api;
@@ -146,61 +120,40 @@ class Illiad {
 	/*
 	* Construct link to appropriate ILLiad request form
 	* @param string $campus Which Alma "campus" does the user belong to? 
-	* @param array $params Contains url-encoded entries from the query string to determine request type and prepopulate ILLiad fields
 	* @return string The complete ILLiad request form URL
 	*/
-	public function buildUrl($campus, $params) {
+	public function buildUrl($campus) {
 		// Service address
 		if ($this->librarySystem($campus)=="ULS") {
-			$url = 'https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll';
+			$url = 'https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll/OpenURL?';
 		}
 		elseif ($this->librarySystem($campus)=="HSLS") {
-			$url = 'https://illiad.hsls.pitt.edu/illiad/illiad.dll';
+			$url = 'https://illiad.hsls.pitt.edu/illiad/illiad.dll/OpenURL?';
 		}
-		// Action and Form
-		switch ($params['requesttype']) {
-			case 'book':
-				$url .= '?Action=10&Form='.($campus === 'HSLS' ? '30' : '21');
-				break;
-			case 'chapter':
-				$url .= '?Action=10&Form=23';
-				break;
-			case 'article':
-				$url .= '?Action=10&Form=22';
-				break;
+		$userQueryString = '';
+		//sanitize user-generated query string parameters
+		foreach($_GET as $k=>$v) {
+			//php replaces query string parameter keys containing dots as underscores, so rft.title becomes rft_title. Change that back with str_replace, but only for rft keys. rfr, for example, uses an underscore natively, like rfr_id
+			$userQueryString .= str_replace("rft_", "rft.", urlencode($k)).'='.urlencode($v).'&';
 		}
-
-		// Parameters
-		$map = array();
-		switch ($params['requesttype']) {
-			case 'book':
-				$map = array('LoanTitle' => 'title', 'LoanAuthor' => 'author', 'LoanPublisher' => 'publisher', 'LoanPlace' => 'location', 'LoanDate' => 'year', 'ESPNumber' => 'oclc');
-				break;
-			case 'article':
-				// external article scan request
-				$map = array('PhotoJournalTitle' => 'title', 'PhotoJournalVolume' => 'volume', 'PhotoJournalIssue' => 'issue', 'PhotoJournalYear' => 'year', 'PhotoJournalMonth' => 'month', 'PhotoArticleTitle' => 'atitle', 'PhotoJournalInclusivePages' => 'pages');
-				break;
-			case 'chapter':
-				// external book chapter scan request
-				$map = array_merge($map, array('PhotoJournalTitle' => 'title', 'PhotoItemAuthor' => 'author', 'PhotoItemPublisher' => 'publisher', 'PhotoItemPlace' => 'location', 'PhotoJournalYear' => 'year', 'ESPNumber' => 'oclc'));
-				break;
-		}
-		foreach ($map as $k => $v) {
-			$url .= '&'.$k.'='.$params[$v];
-		}
+		//the last param should not be followed by &
+		$url .= rtrim($userQueryString,'&');
 		return $url;
 	}
 }
 
+$noExternalBorrowing = array('HSLSSPBORROWER','LAWSPBORROWER','PATPURGE','PITTLIBASSIGNMENT','PROBLEM','ULSSPBORROWER','ULSSPRECIPROCAL','UPPROGRAM');
 //Get the patron's Pitt username
 $user = new Alma();
 $userId = $user->getUserId();
+$requestStatus = '';
 
 //if their account has all the info we need
 if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code && $user->getUserRecord($userId)->user_group->value) {
+	$userGroup = $user->getUserRecord($userId)->user_group->value;
 	//this user group isn't permitted to place external requests
-	if ($user->getUserRecord($userId)->user_group->value == 'UPPROGRAM') {
-		$requestStatus='program';
+	if (in_array($userGroup,$noExternalBorrowing)) {
+		$requestStatus='specialBorrower';
 	}
 	//Barco Law Library users do not participate in Illiad. 
 	elseif ($user->getUserRecord($userId)->campus_code->value==='LAW') {
@@ -222,13 +175,9 @@ if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code 
 		$illiad = new Illiad($campus);
 		$illiadUserExists = $illiad->userExists($userId);
 		//construct a link to the appropriate ILLiad form
-		$illiadUrl = $illiad->buildUrl($campus, $userSubmittedParams);
-		//if they already have an ILLiad account
-		if ($illiadUserExists) {
-			//send them immediately to the ILLiad request form
-			//if not, the html instructions below will display by default
-			header("Location: $illiadUrl");
-		}
+		$illiadUrl = $illiad->buildUrl($campus);
+		//send them to ther campus's ILLiad request form
+		header("Location: $illiadUrl");
 	}
 }
 //Couldn't get Alma user record.
@@ -258,10 +207,10 @@ else {
 						 <p>Error: Failed to connect to your library account. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
 ALMA_API_ERROR;
 						break;
-					case "program":
-					echo <<<PROGRAM_PARTICIPANT
-					<p>Pitt program  participants cannot order books from other libraries. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
-PROGRAM_PARTICIPANT;
+					case "specialBorrower":
+					echo <<<SPECIAL_BORROWER
+					<p>Special borrowers cannot order books from other libraries. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
+SPECIAL_BORROWER;
 						break;
 					case "lawPatron":
 						echo <<<LAW_PATRON
@@ -279,11 +228,9 @@ UNKNOWN_CAMPUS;
 BLANK_CAMPUS;
 						break;
 					default:
-					echo <<<NOILLIADUSER
-					<p>Hi, there!  Prior to completing your request, and due to changes with our materials sharing provider, we ask that you <a href="$illiadUrl">complete a one-time registration with our interlibrary-loan service</a> if you have not already done so.</p>
-					<p>After registration, just complete the request in the form provided and we will have your materials on their way to you as quickly as possible!</p>
-					<p>If you need any additional assistance, please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a></p>
-NOILLIADUSER;
+					echo <<<OTHER_ERROR
+					<p>There is a problem with your request. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
+OTHER_ERROR;
 				}
 			?>
      	</div>
