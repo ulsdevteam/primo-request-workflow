@@ -130,7 +130,7 @@ class Illiad {
 			$url = 'https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll/OpenURL?';
 		}
 		elseif ($this->librarySystem($campus)=="HSLS") {
-			$url = 'https://illiad.hsls.pitt.edu/illiad/illiad.dll/OpenURL?';
+			$url = 'https://illiad.hsls.pitt.edu/illiad/illiad.dll/AtlasAuthPortal/?Action=10&Form=30&';
 		}
 		$userQueryString = '';
 		//sanitize user-generated query string parameters
