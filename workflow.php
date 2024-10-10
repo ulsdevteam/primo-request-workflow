@@ -142,7 +142,7 @@ class Illiad {
 	}
 }
 
-$noExternalBorrowing = array('HSLSSPBORROWER','LAWSPBORROWER','PATPURGE','PITTLIBASSIGNMENT','PROBLEM','ULSSPBORROWER','ULSSPRECIPROCAL','UPPROGRAM');
+$noExternalBorrowing = array('LAWSPBORROWER','PATPURGE','PITTLIBASSIGNMENT','PROBLEM','ULSSPBORROWER','ULSSPRECIPROCAL','UPPROGRAM');
 //Get the patron's Pitt username
 $user = new Alma();
 $userId = $user->getUserId();
