@@ -86,11 +86,13 @@ class Illiad {
 	*/
 	private function librarySystem($campus) {
 		switch ($campus) {
-			case "UPG":
-			case "UPB":
-			case "UPT":
-			case "UPJ":
-			case "PIT":
+			case   "UPG":
+			case   "UPB":
+			case   "UPT":
+			case   "UPJ":
+			case   "PIT":
+			case    "NA":
+			case "BLANK":
 				return 'ULS';
 				break;
 			case "HSLS":
@@ -142,7 +144,9 @@ class Illiad {
 	}
 }
 
+//These Alma user groups aren't permitted to place external requests
 $noExternalBorrowing = array('LAWSPBORROWER','PATPURGE','PITTLIBASSIGNMENT','PROBLEM','ULSSPBORROWER','ULSSPRECIPROCAL','UPPROGRAM');
+
 //Get the patron's Pitt username
 $user = new Alma();
 $userId = $user->getUserId();
@@ -151,7 +155,6 @@ $requestStatus = '';
 //if their account has all the info we need
 if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code && $user->getUserRecord($userId)->user_group->value) {
 	$userGroup = $user->getUserRecord($userId)->user_group->value;
-	//this user group isn't permitted to place external requests
 	if (in_array($userGroup,$noExternalBorrowing)) {
 		$requestStatus='specialBorrower';
 	}
@@ -159,18 +162,18 @@ if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code 
 	elseif ($user->getUserRecord($userId)->campus_code->value==='LAW') {
 		$requestStatus='lawPatron';
 	}
-	//handle alternate Alma user 'Campus' options
-	elseif ($user->getUserRecord($userId)->campus_code->value==='NA') {
-		$requestStatus='unknownCampus';
-	}
-	//if the blank Campus option in Alma is saved for a user, their User object doesn't get a value, just a blank description property 
-	elseif ($user->getUserRecord($userId)->campus_code->desc==='') {
-		$requestStatus='blankCampus';
-	}
 	else {
-		//continue on with the existing workflow
+		//Continue on with the existing workflow
 		//Determine which Alma campus the user belongs to
-		$campus = $user->getUserRecord($userId)->campus_code->value;
+		//If the blank Campus dropdown menu option in Alma is saved for a user, their user campus_code object doesn't get a value, just a blank description property
+		//We'll store a campus value on our end for use in that case
+		if (!property_exists($user->getUserRecord($userId)->campus_code,'value')) {
+			$campus = 'BLANK';
+		}
+		//Otherwise, just take the campus value straight from Alma
+		else{
+			$campus = $user->getUserRecord($userId)->campus_code->value;
+		}
 		//Does user have an ILLiad account? We'll check based on their campus and corresponding library system
 		$illiad = new Illiad($campus);
 		$illiadUserExists = $illiad->userExists($userId);
@@ -216,16 +219,6 @@ SPECIAL_BORROWER;
 						echo <<<LAW_PATRON
 						<p>Law School users, please see <a href="https://www.library.law.pitt.edu/research/interlibrary-loan-delivery">https://www.library.law.pitt.edu/research/interlibrary-loan-delivery</a> for interlibrary loan inforrmation.</p>
 LAW_PATRON;
-						break;
-					case "unknownCampus":
-						echo <<<UNKNOWN_CAMPUS
-						<p>Your request cannot be submitted because the campus field in your library account is listed as 'Unknown.' Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance and mention this error message.</p>
-UNKNOWN_CAMPUS;
-						break;
-					case "blankCampus":
-						echo <<<BLANK_CAMPUS
-						<p>Your request cannot be submitted because the campus field in your library account is blank.  Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance and mention this error message.</p>
-BLANK_CAMPUS;
 						break;
 					default:
 					echo <<<OTHER_ERROR
