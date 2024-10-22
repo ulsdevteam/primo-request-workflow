@@ -86,18 +86,11 @@ class Illiad {
 	*/
 	private function librarySystem($campus) {
 		switch ($campus) {
-			case   "UPG":
-			case   "UPB":
-			case   "UPT":
-			case   "UPJ":
-			case   "PIT":
-			case    "NA":
-			case "BLANK":
-				return 'ULS';
-				break;
 			case "HSLS":
 				return 'HSLS';
 				break;
+			default:
+				return 'ULS';
 		}
 	}	
 
