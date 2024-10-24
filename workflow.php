@@ -61,57 +61,6 @@ Class Alma {
 
 class Illiad {
 
-	private $api;
-
-	/*
-	*returns ILLiad API function
-	*/
-	public function __construct($campus){
-		include_once 'php-restclient/restclient.php';
-		include_once '../../configs/config.php';
-		$system=$this->librarySystem($campus);
-		$this->api = new RestClient([
-			'base_url' => ILLIAD_API_CONFIG[$system]['BASE_URL'] . 'illiadwebplatform/',
-			'headers' => ['Apikey'=>ILLIAD_API_CONFIG[$system]['KEY'],
-					'Accept' => 'application/json; version=1',
-					'Content-Type' => 'application/json',
-			],
-		]);
-	}
-
-	/*
-	* Pitt has two library systems that serve users from different Alma "campuses"
-	* @param string $campus the user's Alma campus
-	* $return string The user's library system for ILLiad purposes
-	*/
-	private function librarySystem($campus) {
-		switch ($campus) {
-			case "HSLS":
-				return 'HSLS';
-				break;
-			default:
-				return 'ULS';
-		}
-	}	
-
-	/*
-	* Does Pitt user also have an existing ILLiad account?
-	* @param string $user A Pitt username
-	* @return bool
-	*/
-	public function userExists($user){
-		$illiadUserRequest = $this->api->get("Users/$user@pitt.edu");
-		
-		//ILLiad user exists
-		if($illiadUserRequest->info->http_code == 200) {
-			return true;
-		}
-		//Couldn't find ILLiad user
-		else {
-			return false;
-		}
-	}	
-
 	/*
 	* Construct link to appropriate ILLiad request form
 	* @param string $campus Which Alma "campus" does the user belong to? 
@@ -119,11 +68,11 @@ class Illiad {
 	*/
 	public function buildUrl($campus) {
 		// Service address
-		if ($this->librarySystem($campus)=="ULS") {
-			$url = 'https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll/OpenURL?';
-		}
-		elseif ($this->librarySystem($campus)=="HSLS") {
+		if ($campus==="HSLS") {
 			$url = 'https://illiad.hsls.pitt.edu/illiad/illiad.dll/AtlasAuthPortal/?Action=10&Form=30&';
+		}
+		else {
+			$url = 'https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll/OpenURL?';
 		}
 		$userQueryString = '';
 		//sanitize user-generated query string parameters
@@ -146,34 +95,32 @@ $userId = $user->getUserId();
 $requestStatus = '';
 
 //if their account has all the info we need
-if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code && $user->getUserRecord($userId)->user_group->value) {
-	$userGroup = $user->getUserRecord($userId)->user_group->value;
+if (($userRecord = $user->getUserRecord($userId)) && $userRecord->campus_code && $userRecord->user_group->value) {
+	//Find user's Alma usergroup and campus
+	//If the blank Campus dropdown menu option in Alma is saved for a user, their user campus_code object doesn't get a value, just a blank description property
+	if (!property_exists($userRecord->campus_code,'value')) {
+		$campus = 'BLANK';
+	}
+	//Otherwise, just take the campus value straight from the user record 
+	else{
+		$campus = $userRecord->campus_code->value;
+	}
+	//Barco Law Library users do not participate in Illiad, so we'll handle them separately later 
+	if ($user->getUserRecord($userId)->campus_code->value==='LAW' && $requestStatus !== 'specialBorrower') {
+		$requestStatus='lawPatron';
+	}
+	//Determine Alma usergroup
+	$userGroup = $userRecord->user_group->value;
+	//Check that against the blocklist for special borrowers
 	if (in_array($userGroup,$noExternalBorrowing)) {
 		$requestStatus='specialBorrower';
 	}
-	//Barco Law Library users do not participate in Illiad. 
-	elseif ($user->getUserRecord($userId)->campus_code->value==='LAW') {
-		$requestStatus='lawPatron';
-	}
-	else {
-		//Continue on with the existing workflow
-		//Determine which Alma campus the user belongs to
-		//If the blank Campus dropdown menu option in Alma is saved for a user, their user campus_code object doesn't get a value, just a blank description property
-		//We'll store a campus value on our end for use in that case
-		if (!property_exists($user->getUserRecord($userId)->campus_code,'value')) {
-			$campus = 'BLANK';
-		}
-		//Otherwise, just take the campus value straight from Alma
-		else{
-			$campus = $user->getUserRecord($userId)->campus_code->value;
-		}
-		//Does user have an ILLiad account? We'll check based on their campus and corresponding library system
-		$illiad = new Illiad($campus);
-		$illiadUserExists = $illiad->userExists($userId);
-		//construct a link to the appropriate ILLiad form
-		$illiadUrl = $illiad->buildUrl($campus);
-		//send them to ther campus's ILLiad request form
-		header("Location: $illiadUrl");
+	if (!$requestStatus) {
+	$illiad = new Illiad();
+	//construct a link to the appropriate ILLiad form
+	$illiadUrl = $illiad->buildUrl($campus);
+	//send them to ther campus's ILLiad request form
+	header("Location: $illiadUrl");
 	}
 }
 //Couldn't get Alma user record.
