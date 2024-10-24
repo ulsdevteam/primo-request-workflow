@@ -104,11 +104,12 @@ if (($userRecord = $user->getUserRecord($userId)) && $userRecord->campus_code &&
 	//Otherwise, just take the campus value straight from the user record 
 	else{
 		$campus = $userRecord->campus_code->value;
+		//Barco Law Library users do not participate in Illiad, so we'll handle them separately later 
+		if ($userRecord->campus_code->value==='LAW' && $requestStatus !== 'specialBorrower') {
+			$requestStatus='lawPatron';
+		}
 	}
-	//Barco Law Library users do not participate in Illiad, so we'll handle them separately later 
-	if ($user->getUserRecord($userId)->campus_code->value==='LAW' && $requestStatus !== 'specialBorrower') {
-		$requestStatus='lawPatron';
-	}
+
 	//Determine Alma usergroup
 	$userGroup = $userRecord->user_group->value;
 	//Check that against the blocklist for special borrowers
