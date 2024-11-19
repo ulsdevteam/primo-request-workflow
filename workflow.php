@@ -153,7 +153,7 @@ ALMA_API_ERROR;
 						break;
 					case "specialBorrower":
 					echo <<<SPECIAL_BORROWER
-					<p>Special borrowers cannot order books from other libraries. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
+					<p>Resource Sharing services from other institutions are not available for your user group. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
 SPECIAL_BORROWER;
 						break;
 					case "lawPatron":
