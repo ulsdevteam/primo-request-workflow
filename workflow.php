@@ -4,32 +4,6 @@
 # Uses this PHP Rest Client: https://github.com/tcdent/php-restclient
 #
 
-$openurlParams = array(
-'title',
-'author',
-'publisher',
-'location',
-'year',
-'oclc',
-'issn',
-'requesttype',
-'volume',
-'issue',
-'month',
-'atitle',
-'pages',
-'pickup',
-'notes',
-);
-
-//url encode user-submitted input from the query string
-$userSubmittedParams = array();
-foreach ($openurlParams as $p) {
-	if (isset($_GET[$p])){
-		$userSubmittedParams[$p] = urlencode($_GET[$p]);
-	}
-}
-
 Class Alma {
 
 	private $api;
@@ -38,7 +12,7 @@ Class Alma {
 	*returns ExLibris API function
 	*/
 	public function __construct(){
-		include_once 'vendor/tcdent/php-restclient/restclient.php';
+		include_once 'php-restclient/restclient.php';
 		include_once '../../configs/config.php';
 		
 		$this->api = new RestClient([
@@ -87,136 +61,67 @@ Class Alma {
 
 class Illiad {
 
-	private $api;
-
-	/*
-	*returns ILLiad API function
-	*/
-	public function __construct($campus){
-		include_once 'vendor/tcdent/php-restclient/restclient.php';
-		include_once '../../configs/config.php';
-		$system=$this->librarySystem($campus);
-		$this->api = new RestClient([
-			'base_url' => ILLIAD_API_CONFIG[$system]['BASE_URL'] . 'illiadwebplatform/',
-			'headers' => ['Apikey'=>ILLIAD_API_CONFIG[$system]['KEY'],
-					'Accept' => 'application/json; version=1',
-					'Content-Type' => 'application/json',
-			],
-		]);
-	}
-
-	/*
-	* Pitt has two library systems that serve users from different Alma "campuses"
-	* @param string $campus the user's Alma campus
-	* $return string The user's library system for ILLiad purposes
-	*/
-	private function librarySystem($campus) {
-		switch ($campus) {
-			case "UPG":
-			case "UPB":
-			case "UPT":
-			case "UPJ":
-			case "PIT":
-				return 'ULS';
-				break;
-			case "HSLS":
-				return 'HSLS';
-				break;
-		}
-	}	
-
-	/*
-	* Does Pitt user also have an existing ILLiad account?
-	* @param string $user A Pitt username
-	* @return bool
-	*/
-	public function userExists($user){
-		$illiadUserRequest = $this->api->get("Users/$user@pitt.edu");
-		
-		//ILLiad user exists
-		if($illiadUserRequest->info->http_code == 200) {
-			return true;
-		}
-		//Couldn't find ILLiad user
-		else {
-			return false;
-		}
-	}	
-
 	/*
 	* Construct link to appropriate ILLiad request form
 	* @param string $campus Which Alma "campus" does the user belong to? 
-	* @param array $params Contains url-encoded entries from the query string to determine request type and prepopulate ILLiad fields
 	* @return string The complete ILLiad request form URL
 	*/
-	public function buildUrl($campus, $params) {
+	public function buildUrl($campus) {
 		// Service address
-		if ($this->librarySystem($campus)=="ULS") {
-			$url = 'https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll';
+		if ($campus==="HSLS") {
+			$url = 'https://illiad.hsls.pitt.edu/illiad/illiad.dll/AtlasAuthPortal/?Action=10&Form=30&';
 		}
-		elseif ($this->librarySystem($campus)=="HSLS") {
-			$url = 'https://illiad.hsls.pitt.edu/illiad/illiad.dll';
+		else {
+			$url = 'https://pitt-illiad-oclc-org.pitt.idm.oclc.org/illiad/illiad.dll/OpenURL?';
 		}
-		// Action and Form
-		switch ($params['requesttype']) {
-			case 'book':
-				$url .= '?Action=10&Form='.($campus === 'HSLS' ? '30' : '21');
-				break;
-			case 'chapter':
-				$url .= '?Action=10&Form=23';
-				break;
-			case 'article':
-				$url .= '?Action=10&Form=22';
-				break;
+		$userQueryString = '';
+		//sanitize user-generated query string parameters
+		foreach($_GET as $k=>$v) {
+			//php replaces query string parameter keys containing dots as underscores, so rft.title becomes rft_title. Change that back with str_replace, but only for rft keys. rfr, for example, uses an underscore natively, like rfr_id
+			$userQueryString .= str_replace("rft_", "rft.", urlencode($k)).'='.urlencode($v).'&';
 		}
-
-		// Parameters
-		$map = array();
-		switch ($params['requesttype']) {
-			case 'book':
-				$map = array('LoanTitle' => 'title', 'LoanAuthor' => 'author', 'LoanPublisher' => 'publisher', 'LoanPlace' => 'location', 'LoanDate' => 'year', 'ESPNumber' => 'oclc');
-				break;
-			case 'article':
-				// article specific
-				$map = array('PhotoJournalVolume' => 'volume', 'PhotoJournalIssue' => 'issue', 'PhotoJournalMonth' => 'month', 'PhotoArticleTitle' => 'atitle', 'PhotoJournalInclusivePages' => 'pages');
-				break;
-			case 'chapter':
-				// both articles and chapters
-				$map = array_merge($map, array('PhotoJournalTitle' => 'title', 'PhotoItemAuthor' => 'author', 'PhotoItemPublisher' => 'publisher', 'PhotoItemPlace' => 'location', 'PhotoJournalYear' => 'year', 'ESPNumber' => 'oclc'));
-				break;
-		}
-		foreach ($map as $k => $v) {
-			$url .= '&'.$k.'='.$params[$v];
-		}
+		//the last param should not be followed by &
+		$url .= rtrim($userQueryString,'&');
 		return $url;
 	}
 }
 
+//These Alma user groups aren't permitted to place external requests
+$noExternalBorrowing = array('LAWSPBORROWER','PATPURGE','PITTLIBASSIGNMENT','PROBLEM','ULSSPBORROWER','ULSSPRECIPROCAL','UPPROGRAM');
+
 //Get the patron's Pitt username
 $user = new Alma();
 $userId = $user->getUserId();
+$requestStatus = '';
 
 //if their account has all the info we need
-if ($user->getUserRecord($userId) && $user->getUserRecord($userId)->campus_code && $user->getUserRecord($userId)->user_group->value) {
-	//this user group isn't permitted to place external requests
-	if ($user->getUserRecord($userId)->user_group->value == 'UPPROGRAM') {
-		$requestStatus='program';
+if (($userRecord = $user->getUserRecord($userId)) && $userRecord->campus_code && $userRecord->user_group->value) {
+	//Find user's Alma usergroup and campus
+	//If the blank Campus dropdown menu option in Alma is saved for a user, their user campus_code object doesn't get a value, just a blank description property
+	if (!property_exists($userRecord->campus_code,'value')) {
+		$campus = 'BLANK';
 	}
-	else {
-		//continue on with the existing workflow
-		//Determine which Alma campus the user belongs to
-		$campus = $user->getUserRecord($userId)->campus_code->value;
-		//Does user have an ILLiad account? We'll check based on their campus and corresponding library system
-		$illiad = new Illiad($campus);
-		$illiadUserExists = $illiad->userExists($userId);
-		//construct a link to the appropriate ILLiad form
-		$illiadUrl = $illiad->buildUrl($campus, $userSubmittedParams);
-		//if they already have an ILLiad account
-		if ($illiadUserExists) {
-			//send them immediately to the ILLiad request form
-			//if not, the html instructions below will display by default
-			header("Location: $illiadUrl");
+	//Otherwise, just take the campus value straight from the user record 
+	else{
+		$campus = $userRecord->campus_code->value;
+		//Barco Law Library users do not participate in Illiad, so we'll handle them separately later 
+		if ($userRecord->campus_code->value==='LAW' && $requestStatus !== 'specialBorrower') {
+			$requestStatus='lawPatron';
 		}
+	}
+
+	//Determine Alma usergroup
+	$userGroup = $userRecord->user_group->value;
+	//Check that against the blocklist for special borrowers
+	if (in_array($userGroup,$noExternalBorrowing)) {
+		$requestStatus='specialBorrower';
+	}
+	if (!$requestStatus) {
+	$illiad = new Illiad();
+	//construct a link to the appropriate ILLiad form
+	$illiadUrl = $illiad->buildUrl($campus);
+	//send them to ther campus's ILLiad request form
+	header("Location: $illiadUrl");
 	}
 }
 //Couldn't get Alma user record.
@@ -240,23 +145,27 @@ else {
      	<div id="main-content">
 	 		<h1>Request This Item</h1>
 	 		<?php 
-				if ($requestStatus == 'almaError') {
-					echo <<<ALMA_API_ERROR
-					<p>Error: Failed to connect to your library account. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
+				switch ($requestStatus) {
+					case "almaError":
+						echo <<<ALMA_API_ERROR
+						 <p>Error: Failed to connect to your library account. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
 ALMA_API_ERROR;
+						break;
+					case "specialBorrower":
+					echo <<<SPECIAL_BORROWER
+					<p>Resource Sharing services from other institutions are not available for your user group. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
+SPECIAL_BORROWER;
+						break;
+					case "lawPatron":
+						echo <<<LAW_PATRON
+						<p>Law School users, please see <a href="https://www.library.law.pitt.edu/research/interlibrary-loan-delivery">https://www.library.law.pitt.edu/research/interlibrary-loan-delivery</a> for interlibrary loan inforrmation.</p>
+LAW_PATRON;
+						break;
+					default:
+					echo <<<OTHER_ERROR
+					<p>There is a problem with your request. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
+OTHER_ERROR;
 				}
-				elseif ($requestStatus == 'program'){
-						echo <<<PROGRAM_PARTICIPANT
-						<p>Pitt program  participants cannot order books from other libraries. Please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a> for assistance.</p>
-PROGRAM_PARTICIPANT;
-				}
-				else{
-			echo <<<NOILLIADUSER
-			<p>Hi, there!  Prior to completing your request, and due to changes with our materials sharing provider, we ask that you <a href="$illiadUrl">complete a one-time registration with our interlibrary-loan service</a> if you have not already done so.</p>
-			<p>After registration, just complete the request in the form provided and we will have your materials on their way to you as quickly as possible!</p>
-			<p>If you need any additional assistance, please <a href="https://www.library.pitt.edu/ask-us">Ask Us</a></p>
-NOILLIADUSER;
-			}
 			?>
      	</div>
 	 </body>
