@@ -78,7 +78,9 @@ class Illiad {
 		//sanitize user-generated query string parameters
 		foreach($_GET as $k=>$v) {
 			//php replaces query string parameter keys containing dots as underscores, so rft.title becomes rft_title. Change that back with str_replace, but only for rft keys. rfr, for example, uses an underscore natively, like rfr_id
-			$userQueryString .= str_replace("rft_", "rft.", urlencode($k)).'='.urlencode($v).'&';
+			if (!empty($v)){
+				$userQueryString .= str_replace("rft_", "rft.", urlencode($k)).'='.urlencode($v).'&';
+			}
 		}
 		//the last param should not be followed by &
 		$url .= rtrim($userQueryString,'&');
